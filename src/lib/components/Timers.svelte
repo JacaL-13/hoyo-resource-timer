@@ -201,7 +201,7 @@
 	>
 		<input
 			id="current-resource"
-			class="text-center bg-inherit rounded-lg h-auto w-36 text-7xl pointer-events-auto"
+			class="text-center bg-inherit rounded-lg h-auto w-36 text-7xl pointer-events-auto placeholder-shown:border-2"
 			type="text"
 			pattern="[0-9]*"
 			inputmode="numeric"
