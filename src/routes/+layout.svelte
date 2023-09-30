@@ -7,28 +7,42 @@
 
 	import Toast from '$lib/components/Toast.svelte';
 
+	import trailblazePower from '$lib/images/trailblaze-power.png';
+	import originalResin from '$lib/images/original-resin.png';
+
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
 
 	const isGenshinActive = $page.route.id === '/genshin';
 	const isStarrailActive = $page.route.id === '/starrail';
-
-	
 </script>
 
 <div class="tabs w-full absolute top-0 justify-center overflow-x-hidden">
 	<a
 		href="/genshin"
 		class="tab tab-lifted w-1/2 tab-lg"
-		class:tab-active={$page.route.id?.includes('genshin')}>Genshin</a
-	>
+		class:tab-active={$page.route.id?.includes('genshin')}
+		>Genshin<img
+			class="mx-2"
+			src={originalResin}
+			alt="Trailblaze Power icon"
+			width="32"
+			height="32"
+		/>
+	</a>
 	<a
 		href="/starrail"
 		class="tab tab-lifted w-1/2 tab-lg"
-		class:tab-active={$page.route.id?.includes('starrail')}>Star Rail</a
+		class:tab-active={$page.route.id?.includes('starrail')}
+		>Star Rail<img
+			class="mx-2"
+			src={trailblazePower}
+			alt="Trailblaze Power icon"
+			width="32"
+			height="32"
+		/></a
 	>
 </div>
-
 
 <main class="flex flex-col items-center h-full">
 	<div class:hidden={!$page.route.id?.includes('genshin')}>
