@@ -22,10 +22,11 @@
 		href="/genshin"
 		class="tab tab-lifted w-1/2 tab-lg"
 		class:tab-active={$page.route.id?.includes('genshin')}
+		class:tab-inactive={!$page.route.id?.includes('genshin')}
 		>Genshin<img
-			class="mx-2"
+			class="mx-1"
 			src={originalResin}
-			alt="Trailblaze Power icon"
+			alt="Original Resin icon"
 			width="32"
 			height="32"
 		/>
@@ -34,6 +35,7 @@
 		href="/starrail"
 		class="tab tab-lifted w-1/2 tab-lg"
 		class:tab-active={$page.route.id?.includes('starrail')}
+		class:tab-inactive={!$page.route.id?.includes('starrail')}
 		>Star Rail<img
 			class="mx-2"
 			src={trailblazePower}
@@ -51,4 +53,14 @@
 	<div class:hidden={!$page.route.id?.includes('starrail')}>
 		<Starrail />
 	</div>
+
+	{#if !($page.route.id?.includes('genshin') || $page.route.id?.includes('starrail'))}
+		<slot />
+	{/if}
 </main>
+
+<style>
+	.tab-inactive {
+		background-color: hsl(212, 18%, 12%);
+	}
+</style>

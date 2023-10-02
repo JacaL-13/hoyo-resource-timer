@@ -1,11 +1,10 @@
 <script>
+	import { onMount } from 'svelte';
+
 	export let maxResource;
 	export let regenTime;
-	// Name of localStorage key for resource value set by user
 	export let localStorageId;
-
 	export let activityTable;
-
 	export let resourceName;
 
 	let startTime;
@@ -26,21 +25,6 @@
 
 	let notify = false;
 
-	// Parses time in seconds into a timer string
-	function parseTimer(timeInSeconds) {
-		const timerHrs = Math.floor(timeInSeconds / 3600);
-		const timerMins = Math.floor((timeInSeconds % 3600) / 60);
-		const timerSecs = Math.floor(timeInSeconds % 60);
-
-		const timerHrsText = timerHrs < 10 ? `0${timerHrs}` : timerHrs;
-		const timerMinsText = timerMins < 10 ? `0${timerMins}` : timerMins;
-		const timerSecsText = timerSecs < 10 ? `0${timerSecs}` : timerSecs;
-
-		return `${timerHrsText}:${timerMinsText}:${timerSecsText}`;
-	}
-
-	import { onMount } from 'svelte';
-
 	// On mount, get the current resource and start time from local storage
 	onMount(() => {
 		startTime = +localStorage.getItem('startTime' + localStorageId) || null;
@@ -58,6 +42,20 @@
 
 		notifyMe();
 	});
+
+	// Parses time in seconds into a timer string
+	function parseTimer(timeInSeconds) {
+		const timerHrs = Math.floor(timeInSeconds / 3600);
+		const timerMins = Math.floor((timeInSeconds % 3600) / 60);
+		const timerSecs = Math.floor(timeInSeconds % 60);
+
+		const timerHrsText = timerHrs < 10 ? `0${timerHrs}` : timerHrs;
+		const timerMinsText = timerMins < 10 ? `0${timerMins}` : timerMins;
+		const timerSecsText = timerSecs < 10 ? `0${timerSecs}` : timerSecs;
+
+		return `${timerHrsText}:${timerMinsText}:${timerSecsText}`;
+	}
+
 
 	//Handle user change of input
 	function hdlChange() {
@@ -125,8 +123,7 @@
 		}, 1000);
 	}
 
-	function notifyMe() {
-	}
+	function notifyMe() {}
 
 	//if notify changes, set document to blink and play sound
 	$: if (notify) {
@@ -156,12 +153,10 @@
 			curResource = maxResource;
 		}
 	}
-
-
 </script>
 
 <!-- Table of activities with timers -->
-<div class="flex flex-col gap-y-5 items-center justify-end my-10 h-full">
+<div class="flex flex-col gap-y-5 items-center justify-end my-20 h-full">
 	<table class="table-sm mx-5">
 		<tbody>
 			<tr class="text-left">
@@ -237,6 +232,4 @@
 			location.reload();
 		}}>Clear Timer</button
 	>
-	
-
 </div>
