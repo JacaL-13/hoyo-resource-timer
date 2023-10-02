@@ -12,9 +12,6 @@
 
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
-
-	const isGenshinActive = $page.route.id === '/genshin';
-	const isStarrailActive = $page.route.id === '/starrail';
 </script>
 
 <div class="tabs w-full absolute top-0 justify-center overflow-x-hidden">

@@ -56,7 +56,6 @@
 		return `${timerHrsText}:${timerMinsText}:${timerSecsText}`;
 	}
 
-
 	//Handle user change of input
 	function hdlChange() {
 		startTime = new Date().valueOf();
@@ -153,50 +152,76 @@
 			curResource = maxResource;
 		}
 	}
+
+	let screenSizeY;
 </script>
 
-<!-- Table of activities with timers -->
-<div class="flex flex-col gap-y-5 items-center justify-end my-20 h-full">
-	<table class="table-sm mx-5">
-		<tbody>
-			<tr class="text-left">
-				<th>Activity</th>
-				<th>Cost</th>
-				<th>Reward</th>
-				<th>Timer</th>
-			</tr>
-			{#each activityTable as row}
-				<tr class={curResource > row.cost - 1 ? 'bg-green-700 text-black' : ''}>
-					<td>{row.activity}</td>
-					<td>{row.cost}</td>
-					<td>{row.reward}</td>
-					<td>{row.timerString}</td>
-				</tr>
-				<tr style="line-height: 1px">
-					<td class="p-0" colspan="4">
-						<progress
-							class="progress progress-success h-2 w-full"
-							value={curResource || 0}
-							max={row.cost}
-						/>
-					</td>
-				</tr>
-			{/each}
-		</tbody>
-	</table>
+<svelte:window bind:innerHeight={screenSizeY} />
 
-	<h3>Current {resourceName} :</h3>
+<style>
+	.table-responsive tr {
+		line-height: 2vh;
+		font-size: 2vh;
+	}
+</style>
+
+<!-- Table of activities with timers -->
+<div
+	class="flex flex-col items-center justify-end mt-16 my-5"
+	style="max-height: 90vh; row-gap: {screenSizeY > 800 ? '1.25rem' : '1.5vh'};"
+>
+	<div class="w-auto h-auto mx-5">
+		<table class="table-sm"
+			class:table-responsive={screenSizeY < 800}
+		>
+			<tbody>
+				<tr class="text-left">
+					<th>Activity</th>
+					<th>Cost</th>
+					<th>Reward</th>
+					<th>Timer</th>
+				</tr>
+				{#each activityTable as row}
+					<tr
+						class={curResource > row.cost - 1
+							? 'bg-green-700 text-black'
+							: ''}
+					>
+						<td>{row.activity}</td>
+						<td>{row.cost}</td>
+						<td>{row.reward}</td>
+						<td>{row.timerString}</td>
+					</tr>
+					<tr style="line-height: 1px">
+						<td class="p-0" colspan="4">
+							<progress
+								class="progress progress-success h-2 w-full"
+								value={curResource || 0}
+								max={row.cost}
+							/>
+						</td>
+					</tr>
+				{/each}
+			</tbody>
+		</table>
+	</div>
+
+	<h3 style={screenSizeY < 800 ? 'font-size: 3vh;' : ''}>Current {resourceName} :</h3>
 
 	<!-- Current resource progress and input -->
 	<div
-		class="radial-progress pointer-events-none bg-blue-600 text-yellow-300"
+		class="radial-progress aspect-square pointer-events-none bg-blue-600 text-yellow-300"
 		style={`--value:${
 			isNaN(curResource) ? 0 : (curResource / maxResource) * 100
-		}; --size:14rem; --thickness: 0.5rem;`}
+		}; --size: ${screenSizeY > 800 ? '14rem' : '22vh'}; --thickness: 0.5rem;`}
 	>
 		<input
 			id="current-resource"
-			class="text-center bg-inherit rounded-lg h-auto w-36 text-7xl pointer-events-auto placeholder-shown:border-2"
+			class="text-center bg-inherit rounded-lg pointer-events-auto placeholder-shown:border-2 aspect-video"
+			style="width: 16vh; height: 10vh; max-width: 128px; max-height: 95px; font-size: {screenSizeY >
+			800
+				? '4.5rem'
+				: '9vh'};"
 			type="text"
 			pattern="[0-9]*"
 			inputmode="numeric"
