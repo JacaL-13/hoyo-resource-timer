@@ -5,6 +5,7 @@
 	const regenTime = 8; //8 minutes
 	const localStorageId = 'Genshin';
 	const resourceName = 'Original Resin'
+	const weekBossName = 'Weekly Bosses'
 	const notifySrc = ''
 
 	// Ley Line Outcrops 20 (or 1× Condensed Resin)
@@ -12,7 +13,7 @@
 	// Normal Bosses 	40
 	// Weekly Bosses 	30 (60 after 3rd claimed reward)
 
-	const activityTable = [
+	let activityTable = [
 		{
 			activity: 'Ley Line Outcrops',
 			cost: 20,
@@ -30,6 +31,7 @@
 		{
 			activity: 'Weekly Bosses',
 			cost: 30,
+			modCost: 60,
 			reward: 'Ascension',
 			timerSeconds: null,
 			timerString: '--:--:--'
@@ -42,6 +44,7 @@
 			timerString: '--:--:--'
 		},
 	];
+
 </script>
 
-<Timers {maxResource} {regenTime} {localStorageId} {activityTable} {resourceName} />
+<Timers {maxResource} {regenTime} {localStorageId} {activityTable} {resourceName} {weekBossName} />

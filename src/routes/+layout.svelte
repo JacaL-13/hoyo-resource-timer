@@ -43,7 +43,7 @@
 	>
 </div>
 
-<main class="flex flex-col items-center h-full">
+<main class="flex flex-col items-center h-full overflow-hidden">
 	<div class:hidden={!$page.route.id?.includes('genshin')}>
 		<Genshin />
 	</div>

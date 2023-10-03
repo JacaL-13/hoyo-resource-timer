@@ -5,6 +5,7 @@
 	const regenTime = 6; //6 minutes
 	const localStorageId = 'Starrail';
 	const resourceName = 'Trailblaze Power';
+	const weekBossName = 'Echo of War'
 	const notifySrc = 'https://www.youtube.com/watch?v=KvKNieeClHc';
 
 	const activityTable = [
@@ -39,6 +40,7 @@
 		{
 			activity: 'Echo of War',
 			cost: 30,
+			modCost: 'No Reward',
 			reward: 'Trace/Light Cones',
 			timerSeconds: null,
 			timerString: '--:--:--'
@@ -52,4 +54,5 @@
 	{localStorageId}
 	{activityTable}
 	{resourceName}
+	{weekBossName}
 />

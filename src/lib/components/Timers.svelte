@@ -6,6 +6,7 @@
 	export let localStorageId;
 	export let activityTable;
 	export let resourceName;
+	export let weekBossName;
 
 	let startTime;
 
@@ -25,10 +26,27 @@
 
 	let notify = false;
 
+	let weekBossSetTime;
+
 	// On mount, get the current resource and start time from local storage
 	onMount(() => {
 		startTime = +localStorage.getItem('startTime' + localStorageId) || null;
 		setResource = +localStorage.getItem('setResource' + localStorageId) || null;
+
+		weekBossSetTime =
+			+localStorage.getItem('weekBossSetTime' + localStorageId) || null;
+
+		//get last monday 4am
+		const lastMonday = new Date(
+			new Date().setDate(new Date().getDate() - new Date().getDay() + 1)
+		).setHours(4, 0, 0, 0);
+
+		//check if last monday is after weekBossSetTime
+		if (lastMonday > weekBossSetTime) {
+			localStorage.removeItem('weekBossCounter' + localStorageId);
+		}
+
+		weekBossCounter = +localStorage.getItem('weekBossCounter' + localStorageId) || 3;
 
 		// If localStorage exists, start the timer
 		if (startTime) {
@@ -154,26 +172,39 @@
 	}
 
 	let screenSizeY;
+
+	const breakPoint = 860;
+
+	let weekBossCounter;
+
+	let debounceTimer;
+	let disabled = false;
+
+	function hdlCounter(num) {
+		clearTimeout(debounceTimer);
+
+		if (!disabled && weekBossCounter + num > -1 && weekBossCounter + num < 4) {
+			weekBossCounter += num;
+			localStorage.setItem('weekBossCounter' + localStorageId, weekBossCounter);
+			localStorage.setItem(
+				'weekBossSetTime' + localStorageId,
+				new Date().valueOf()
+			);
+			disabled = true;
+		}
+
+		debounceTimer = setTimeout(() => {
+			disabled = false;
+		}, 100);
+	}
 </script>
 
 <svelte:window bind:innerHeight={screenSizeY} />
 
-<style>
-	.table-responsive tr {
-		line-height: 2vh;
-		font-size: 2vh;
-	}
-</style>
-
 <!-- Table of activities with timers -->
-<div
-	class="flex flex-col items-center justify-end mt-16 my-5"
-	style="max-height: 90vh; row-gap: {screenSizeY > 800 ? '1.25rem' : '1.5vh'};"
->
+<div id="timers" class="flex flex-col items-center justify-around mt-12 mb-1">
 	<div class="w-auto h-auto mx-5">
-		<table class="table-sm"
-			class:table-responsive={screenSizeY < 800}
-		>
+		<table id="timer-table" class="table-sm">
 			<tbody>
 				<tr class="text-left">
 					<th>Activity</th>
@@ -187,10 +218,14 @@
 							? 'bg-green-700 text-black'
 							: ''}
 					>
-						<td>{row.activity}</td>
-						<td>{row.cost}</td>
-						<td>{row.reward}</td>
-						<td>{row.timerString}</td>
+						<td class="text-row">{row.activity}</td>
+						<td class="text-row"
+							>{row.activity === weekBossName && weekBossCounter <= 0
+								? row.modCost
+								: row.cost}</td
+						>
+						<td class="text-row">{row.reward}</td>
+						<td class="text-row">{row.timerString}</td>
 					</tr>
 					<tr style="line-height: 1px">
 						<td class="p-0" colspan="4">
@@ -206,47 +241,69 @@
 		</table>
 	</div>
 
-	<h3 style={screenSizeY < 800 ? 'font-size: 3vh;' : ''}>Current {resourceName} :</h3>
-
-	<!-- Current resource progress and input -->
-	<div
-		class="radial-progress aspect-square pointer-events-none bg-blue-600 text-yellow-300"
-		style={`--value:${
-			isNaN(curResource) ? 0 : (curResource / maxResource) * 100
-		}; --size: ${screenSizeY > 800 ? '14rem' : '22vh'}; --thickness: 0.5rem;`}
-	>
-		<input
-			id="current-resource"
-			class="text-center bg-inherit rounded-lg pointer-events-auto placeholder-shown:border-2 aspect-video"
-			style="width: 16vh; height: 10vh; max-width: 128px; max-height: 95px; font-size: {screenSizeY >
-			800
-				? '4.5rem'
-				: '9vh'};"
-			type="text"
-			pattern="[0-9]*"
-			inputmode="numeric"
-			max="240"
-			min="0"
-			maxlength="3"
-			placeholder="---"
-			bind:value={curResource}
-			on:input={enforceNumeric}
-			on:focus={(event) => {
-				pause = true;
-				event.target.select();
-			}}
-			on:blur={() => {
-				pause = false;
-			}}
-			on:change={hdlChange}
-			on:keydown={(event) => {
-				if (event.key === 'Enter') {
-					event.target.blur();
-				}
-			}}
-		/>
+	<!-- Weekly boss counter -->
+	<div class="flex justify-center items-center gap-x-1 w-full px-5">
+		<p class="mr-5 whitespace-nowrap">{weekBossName} :</p>
+		<button
+			class="counter-btn btn btn-xs"
+			on:click={() => {
+				hdlCounter(-1);
+			}}>➖</button
+		>
+		<div
+			class="counter-card flex justify-center items-center card bg-base-200 w-20 cursor-default"
+		>
+			<p>{weekBossCounter} / 3</p>
+		</div>
+		<button
+			class="counter-btn btn btn-xs"
+			on:click={() => {
+				hdlCounter(1);
+			}}>➕</button
+		>
 	</div>
-	<p>Time to full {maxTimer}</p>
+
+	<div class="flex flex-col items-center gap-y-3">
+		<h3>Current {resourceName} :</h3>
+
+		<!-- Current resource progress and input -->
+		<div
+			class="radial-progress aspect-square pointer-events-none bg-blue-600 text-yellow-300"
+			style={`--value:${
+				isNaN(curResource) ? 0 : (curResource / maxResource) * 100
+			}; --size: ${
+				screenSizeY > breakPoint ? '12rem' : '22vh'
+			}; --thickness: 0.5rem;`}
+		>
+			<input
+				id="current-resource"
+				class="text-center bg-inherit rounded-lg pointer-events-auto placeholder-shown:border-2 aspect-video"
+				type="text"
+				pattern="[0-9]*"
+				inputmode="numeric"
+				max="240"
+				min="0"
+				maxlength="3"
+				placeholder="---"
+				bind:value={curResource}
+				on:input={enforceNumeric}
+				on:focus={(event) => {
+					pause = true;
+					event.target.select();
+				}}
+				on:blur={() => {
+					pause = false;
+				}}
+				on:change={hdlChange}
+				on:keydown={(event) => {
+					if (event.key === 'Enter') {
+						event.target.blur();
+					}
+				}}
+			/>
+		</div>
+		<p>Time to full {maxTimer}</p>
+	</div>
 	<button
 		class=" btn-ghost text-xs"
 		on:click={() => {
@@ -258,3 +315,54 @@
 		}}>Clear Timer</button
 	>
 </div>
+
+<style>
+	#timers {
+		height: 90vh;
+		max-height: 750px;
+	}
+
+	input {
+		width: 16vh;
+		height: 10vh;
+		max-width: 128px;
+		max-height: 95px;
+		font-size: 4.5rem;
+	}
+
+	.counter-card {
+		height: 4vh;
+		max-height: 2.5rem;
+	}
+
+	@media screen and (max-height: 860px) {
+		#timer-table tr {
+			line-height: 2vh;
+			font-size: 2vh;
+		}
+
+		#timer-table td.text-row {
+			padding: 0.5rem 1vw 0.5rem 1vw;
+		}
+
+		h3 {
+			font-size: 3.5vh;
+		}
+
+		input {
+			font-size: 8vh;
+		}
+
+		p {
+			font-size: 2vh;
+		}
+
+		button {
+			font-size: 2vh;
+		}
+
+		.counter-btn {
+			width: 3rem;
+		}
+	}
+</style>
