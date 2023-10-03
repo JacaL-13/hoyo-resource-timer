@@ -247,8 +247,8 @@
 		<button
 			class="counter-btn btn btn-xs"
 			on:click={() => {
-				hdlCounter(-1);
-			}}>➖</button
+				hdlCounter(1);
+			}}>➕</button
 		>
 		<div
 			class="counter-card flex justify-center items-center card bg-base-200 w-20 cursor-default"
@@ -258,8 +258,8 @@
 		<button
 			class="counter-btn btn btn-xs"
 			on:click={() => {
-				hdlCounter(1);
-			}}>➕</button
+				hdlCounter(-1);
+			}}>➖</button
 		>
 	</div>
 
