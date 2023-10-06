@@ -3,7 +3,7 @@
 
 	export let maxResource;
 	export let regenTime;
-	export let localStorageId;
+	export let tabId;
 	export let activityTable;
 	export let resourceName;
 	export let weekBossName;
@@ -30,23 +30,22 @@
 
 	// On mount, get the current resource and start time from local storage
 	onMount(() => {
-		startTime = +localStorage.getItem('startTime' + localStorageId) || null;
-		setResource = +localStorage.getItem('setResource' + localStorageId) || null;
+		startTime = +localStorage.getItem('startTime' + tabId) || null;
+		setResource = +localStorage.getItem('setResource' + tabId) || null;
 
-		weekBossSetTime =
-			+localStorage.getItem('weekBossSetTime' + localStorageId) || null;
+		weekBossSetTime = +localStorage.getItem('weekBossSetTime' + tabId) || null;
 
 		//get last monday 4am
 		const lastMonday = new Date(
-			new Date().setDate(new Date().getDate() - new Date().getDay() + 1)
+			new Date().setDate(new Date().getDate() - new Date().getDay() + 1),
 		).setHours(4, 0, 0, 0);
 
 		//check if last monday is after weekBossSetTime
 		if (lastMonday > weekBossSetTime) {
-			localStorage.removeItem('weekBossCounter' + localStorageId);
+			localStorage.removeItem('weekBossCounter' + tabId);
 		}
 
-		weekBossCounter = +localStorage.getItem('weekBossCounter' + localStorageId) || 3;
+		weekBossCounter = +localStorage.getItem('weekBossCounter' + tabId) || 3;
 
 		// If localStorage exists, start the timer
 		if (startTime) {
@@ -79,8 +78,8 @@
 		startTime = new Date().valueOf();
 		setResource = curResource;
 
-		localStorage.setItem('setResource' + localStorageId, setResource);
-		localStorage.setItem('startTime' + localStorageId, startTime);
+		localStorage.setItem('setResource' + tabId, setResource);
+		localStorage.setItem('startTime' + tabId, startTime);
 
 		setTimer();
 	}
@@ -97,7 +96,7 @@
 		maxTimer = parseTimer(secondsToMax < 0 ? 0 : secondsToMax);
 
 		activityTable.forEach((row) => {
-			row.timerSeconds = (row.cost - setResource) * regenTime * 60;
+			row.timerSeconds = (row.cost - (setResource % row.cost)) * regenTime * 60;
 			row.timerString = parseTimer(row.timerSeconds < 0 ? 0 : row.timerSeconds);
 
 			activityTable = activityTable;
@@ -130,9 +129,15 @@
 
 			maxTimer = parseTimer(secondsToMax);
 
+			const timeSinceAdded = timeElapsedInSeconds % (regenTime * 60);
+
 			activityTable.forEach((row) => {
 				row.timerSeconds =
-					(row.cost - setResource) * regenTime * 60 - timeElapsedInSeconds;
+					curResource >= 240
+						? 0
+						: (row.cost - (curResource % row.cost)) * regenTime * 60 -
+						  timeSinceAdded;
+
 				row.timerString = parseTimer(row.timerSeconds < 0 ? 0 : row.timerSeconds);
 
 				activityTable = activityTable;
@@ -185,11 +190,8 @@
 
 		if (!disabled && weekBossCounter + num > -1 && weekBossCounter + num < 4) {
 			weekBossCounter += num;
-			localStorage.setItem('weekBossCounter' + localStorageId, weekBossCounter);
-			localStorage.setItem(
-				'weekBossSetTime' + localStorageId,
-				new Date().valueOf()
-			);
+			localStorage.setItem('weekBossCounter' + tabId, weekBossCounter);
+			localStorage.setItem('weekBossSetTime' + tabId, new Date().valueOf());
 			disabled = true;
 		}
 
@@ -197,6 +199,9 @@
 			disabled = false;
 		}, 100);
 	}
+
+	//end of script marker
+	//------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 </script>
 
 <svelte:window bind:innerHeight={screenSizeY} />
@@ -207,10 +212,11 @@
 		<table id="timer-table" class="table-sm">
 			<tbody>
 				<tr class="text-left">
-					<th>Activity</th>
-					<th>Cost</th>
-					<th>Reward</th>
-					<th>Timer</th>
+					<th class="header-row">Activity</th>
+					<th class="header-row">Cost</th>
+					<th class="header-row">Reward</th>
+					<th class="header-row">Timer</th>
+					<th class="header-row">Avail.</th>
 				</tr>
 				{#each activityTable as row}
 					<tr
@@ -226,13 +232,18 @@
 						>
 						<td class="text-row">{row.reward}</td>
 						<td class="text-row">{row.timerString}</td>
+						<td class="text-row text-center"
+							>{curResource < row.cost
+								? 0
+								: Math.floor(curResource / row.cost) || '-'}</td
+						>
 					</tr>
 					<tr style="line-height: 1px">
-						<td class="p-0" colspan="4">
+						<td class="p-0" colspan="5">
 							<progress
 								class="progress progress-success h-2 w-full"
-								value={curResource || 0}
-								max={row.cost}
+								value={row.cost * regenTime * 60 - row.timerSeconds}
+								max={row.cost * regenTime * 60}
 							/>
 						</td>
 					</tr>
@@ -243,7 +254,7 @@
 
 	<!-- Weekly boss counter -->
 	<div class="flex justify-center items-center gap-x-1 w-full px-5">
-		<p class="mr-5 whitespace-nowrap">{weekBossName} :</p>
+		<p class="mr-5 whitespace-nowrap">{weekBossName}<br /> Remaining:</p>
 		<button
 			class="counter-btn btn btn-xs"
 			on:click={() => {
@@ -253,7 +264,7 @@
 		<div
 			class="counter-card flex justify-center items-center card bg-base-200 w-20 cursor-default"
 		>
-			<p>{weekBossCounter} / 3</p>
+			<p>{weekBossCounter || '-'} / 3</p>
 		</div>
 		<button
 			class="counter-btn btn btn-xs"
@@ -276,7 +287,7 @@
 			}; --thickness: 0.5rem;`}
 		>
 			<input
-				id="current-resource"
+				id={'current-resource' + tabId}
 				class="text-center bg-inherit rounded-lg pointer-events-auto placeholder-shown:border-2 aspect-video"
 				type="text"
 				pattern="[0-9]*"
@@ -307,8 +318,8 @@
 	<button
 		class=" btn-ghost text-xs"
 		on:click={() => {
-			localStorage.removeItem('startTime' + localStorageId);
-			localStorage.removeItem('setResource' + localStorageId);
+			localStorage.removeItem('startTime' + tabId);
+			localStorage.removeItem('setResource' + tabId);
 
 			//refresh page
 			location.reload();
@@ -320,6 +331,10 @@
 	#timers {
 		height: 90vh;
 		max-height: 750px;
+	}
+
+	.header-row {
+		padding-left: 10px;
 	}
 
 	input {
@@ -336,6 +351,10 @@
 	}
 
 	@media screen and (max-height: 860px) {
+		.header-row {
+			padding-left: 5px;
+		}
+
 		#timer-table tr {
 			line-height: 2vh;
 			font-size: 2vh;

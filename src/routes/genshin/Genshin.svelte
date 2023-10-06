@@ -3,10 +3,10 @@
 
 	const maxResource = 160;
 	const regenTime = 8; //8 minutes
-	const localStorageId = 'Genshin';
-	const resourceName = 'Original Resin'
-	const weekBossName = 'Weekly Bosses'
-	const notifySrc = ''
+	const tabId = 'Genshin';
+	const resourceName = 'Original Resin';
+	const weekBossName = 'Weekly Bosses';
+	const notifySrc = '';
 
 	// Ley Line Outcrops 20 (or 1× Condensed Resin)
 	// Domains 	20 (or 1× Condensed Resin)
@@ -42,9 +42,8 @@
 			reward: 'Ascension',
 			timerSeconds: null,
 			timerString: '--:--:--'
-		},
+		}
 	];
-
 </script>
 
-<Timers {maxResource} {regenTime} {localStorageId} {activityTable} {resourceName} {weekBossName} />
+<Timers {maxResource} {regenTime} {tabId} {activityTable} {resourceName} {weekBossName} />
