@@ -7,14 +7,14 @@
 
 	import Toast from '$lib/components/Toast.svelte';
 
-	import trailblazePower from '$lib/images/trailblaze-power.png';
-	import originalResin from '$lib/images/original-resin.png';
+	import trailblazePower from '$lib/images/trailblaze-power.webp';
+	import originalResin from '$lib/images/original-resin.webp';
 
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
 </script>
 
-<div class="tabs w-full absolute top-0 justify-center overflow-x-hidden">
+<div class="tabs w-full absolute top-0 justify-center overflow-x-hidden text-white">
 	<a
 		href="/genshin"
 		class="tab tab-lifted w-1/2 tab-lg"
@@ -59,5 +59,6 @@
 <style>
 	.tab-inactive {
 		background-color: hsl(212, 18%, 12%);
+		color: #A8A8A8;
 	}
 </style>

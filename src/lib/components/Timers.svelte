@@ -204,12 +204,12 @@
 	<div class="w-auto h-auto mx-5">
 		<table id="timer-table" class="table-sm">
 			<tbody>
-				<tr class="text-left">
-					<th class="header-row">Activity</th>
-					<th class="header-row">Cost</th>
-					<th class="header-row">Reward</th>
-					<th class="header-row">Timer</th>
-					<th class="header-row">Avail.</th>
+				<tr>
+					<th class="header-row text-left">Activity</th>
+					<th class="text-center">Cost</th>
+					<th class="header-row text-left">Reward</th>
+					<th class="text-center">Timer</th>
+					<th class="text-center">Avail.</th>
 				</tr>
 				{#each activityTable as row}
 					<tr
@@ -218,13 +218,13 @@
 							: ''}
 					>
 						<td class="text-row">{row.activity}</td>
-						<td class="text-row"
+						<td class="text-row text-center"
 							>{row.activity === weekBossName && weekBossCounter <= 0
 								? row.modCost
 								: row.cost}</td
 						>
 						<td class="text-row">{row.reward}</td>
-						<td class="text-row">{row.timerString}</td>
+						<td class="text-row text-center">{row.timerString}</td>
 						<td class="text-row text-center"
 							>{curResource < row.cost
 								? 0
@@ -246,7 +246,7 @@
 	</div>
 
 	<!-- Weekly boss counter -->
-	<div class="flex justify-center items-center gap-x-1 w-full px-5">
+	<div class="flex justify-center items-center gap-x-1 w-full px-5 py-1">
 		<p class="mr-5 whitespace-nowrap">{weekBossName}<br /> Remaining:</p>
 		<button
 			class="counter-btn btn btn-xs"
@@ -257,7 +257,7 @@
 		<div
 			class="counter-card flex justify-center items-center card bg-base-200 w-20 cursor-default"
 		>
-			<p>{weekBossCounter || '-'} / 3</p>
+			<p>{weekBossCounter <= 0 ? 0 : weekBossCounter || '-'} / 3</p>
 		</div>
 		<button
 			class="counter-btn btn btn-xs"
@@ -306,7 +306,7 @@
 				}}
 			/>
 		</div>
-		<p>Time to full {maxTimer}</p>
+		<p class="main-timer">Time to full {maxTimer}</p>
 	</div>
 	<button
 		class=" btn-ghost text-xs"
@@ -327,7 +327,6 @@
 	}
 
 	.header-row {
-		padding-left: 10px;
 	}
 
 	input {
@@ -345,7 +344,7 @@
 
 	@media screen and (max-height: 860px) {
 		.header-row {
-			padding-left: 5px;
+			padding-left: 1vw;
 		}
 
 		#timer-table tr {
@@ -369,8 +368,12 @@
 			font-size: 2vh;
 		}
 
+		.main-timer {
+			font-size: 2.5vh;
+		}
+
 		button {
-			font-size: 2vh;
+			font-size: 1.7vh;
 		}
 
 		.counter-btn {
