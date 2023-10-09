@@ -44,10 +44,10 @@
 </div>
 
 <main class="flex flex-col items-center h-full overflow-hidden">
-	<div class:hidden={!$page.route.id?.includes('genshin')}>
+	<div class="flex flex-col h-full justify-center" class:hidden={!$page.route.id?.includes('genshin')}>
 		<Genshin />
 	</div>
-	<div class:hidden={!$page.route.id?.includes('starrail')}>
+	<div class="flex flex-col h-full justify-center" class:hidden={!$page.route.id?.includes('starrail')}>
 		<Starrail />
 	</div>
 

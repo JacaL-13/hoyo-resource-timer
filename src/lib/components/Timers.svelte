@@ -56,8 +56,6 @@
 
 			setTimer();
 		}
-
-		notifyMe();
 	});
 
 	// Parses time in seconds into a timer string
@@ -133,7 +131,7 @@
 
 			activityTable.forEach((row) => {
 				row.timerSeconds =
-					curResource >= 240
+					curResource >= maxResource
 						? 0
 						: (row.cost - (curResource % row.cost)) * regenTime * 60 -
 						  timeSinceAdded;
@@ -144,8 +142,6 @@
 			});
 		}, 1000);
 	}
-
-	function notifyMe() {}
 
 	//if notify changes, set document to blink and play sound
 	$: if (notify) {
@@ -160,11 +156,8 @@
 				document.title = 'Hoyo Resource Timer';
 			}
 		}, 1500);
-
-		notifyMe();
 	} else if (notifyIntervalId) {
 		clearInterval(notifyIntervalId);
-		document.title = 'Hoyo Resource Timer';
 	}
 
 	// Enforce numeric input and maximum resource value
@@ -329,7 +322,7 @@
 
 <style>
 	#timers {
-		height: 90vh;
+		height: 100%;
 		max-height: 750px;
 	}
 

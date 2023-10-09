@@ -1,0 +1,9 @@
+{
+	"name": "Hoyo Resource Timer",
+	"start_url": "/"
+	, "icons": [
+
+	],
+	"background_color": "#1d232a",
+	"display": "standalone"
+}
