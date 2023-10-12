@@ -1,0 +1,23 @@
+import { json } from '@sveltejs/kit';
+
+import webPush from 'web-push';
+import { PUBLIC_VAPID_KEY, VAPID_PRIVATE_KEY } from '$env/static/private';
+
+import { app } from '$lib/firebase';
+
+console.log('VAPID_PUBLIC_KEY: ', VAPID_PUBLIC_KEY);
+
+webPush.setVapidDetails(
+	'https://hoyoresourcetimer.com',
+	PUBLIC_VAPID_KEY,
+	VAPID_PRIVATE_KEY,
+);
+
+export function GET() {
+	return json(VAPID_PUBLIC_KEY);
+}
+
+export async function POST(req) {
+	const { description } = await req.json()
+	
+}

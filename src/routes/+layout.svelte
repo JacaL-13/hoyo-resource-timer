@@ -12,6 +12,76 @@
 
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
+
+	import { app } from '$lib/firebase';
+	import { getMessaging, getToken } from 'firebase/messaging';
+
+	import { PUBLIC_VAPID_KEY } from '$env/static/public';
+
+	import { dev } from '$app/environment';
+
+	let sub;
+
+	onMount(async () => {
+		// if ('serviceWorker' in navigator) {
+		// 	navigator.serviceWorker
+		// 		.register('firebase-messaging-sw.js', { type: dev ? 'module' : 'classic', scope: '/firebase-cloud-messaging-push-scope' })
+		// 		.then(function (reg) {
+		// 			// registration worked
+		// 			console.log('Registration succeeded. Scope is ' + reg.scope);
+		// 		})
+		// 		.catch(function (error) {
+		// 			// registration failed
+		// 			console.log('Registration failed with ' + error);
+		// 		});
+		// }
+
+		// const messaging = getMessaging(app);
+
+		// getToken(messaging, { vapidKey: PUBLIC_VAPID_KEY })
+		// 	.then((currentToken) => {
+		// 		if (currentToken) {
+		// 			console.log('current token for client: ', currentToken);
+		// 		} else {
+		// 			// Show permission request UI
+		// 			console.log(
+		// 				'No registration token available. Request permission to generate one.',
+		// 			);
+		// 			// ...
+		// 		}
+		// 	})
+		// 	.catch((err) => {
+		// 		console.log('An error occurred while retrieving token. ', err);
+		// 		// ...
+		// 	});
+
+		// navigator.serviceWorker.register('/service-worker.js', {type: dev ? 'module' : 'classic'});
+		// const reg = await navigator.serviceWorker.ready;
+		// reg.pushManager.subscribe({ userVisibleOnly: true });
+
+		if ('serviceWorker' in navigator) {
+			// Service worker supported
+			const status = await Notification.requestPermission();
+			// if (status !== 'granted')
+			// 	alert(
+			// 		'Please allow notifications to make sure that the application works.',
+			// 	);
+			// navigator.serviceWorker.register('/service-worker.js', {
+			// 	type: dev ? 'module' : 'classic',
+			// });
+			const reg = await navigator.serviceWorker.ready;
+			sub = await reg.pushManager.getSubscription();
+			if (!sub) {
+				const res = await fetch('/notify');
+				const key = await res.json();
+				sub = await reg.pushManager.subscribe({
+					userVisibleOnly: true,
+					applicationServerKey: key,
+				});
+			}
+			console.log('subscription', sub);
+		}
+	});
 </script>
 
 <div class="tabs w-full absolute top-0 justify-center overflow-x-hidden text-white">
@@ -44,10 +114,16 @@
 </div>
 
 <main class="flex flex-col items-center h-full overflow-hidden">
-	<div class="flex flex-col h-full justify-center" class:hidden={!$page.route.id?.includes('genshin')}>
+	<div
+		class="flex flex-col h-full justify-center"
+		class:hidden={!$page.route.id?.includes('genshin')}
+	>
 		<Genshin />
 	</div>
-	<div class="flex flex-col h-full justify-center" class:hidden={!$page.route.id?.includes('starrail')}>
+	<div
+		class="flex flex-col h-full justify-center"
+		class:hidden={!$page.route.id?.includes('starrail')}
+	>
 		<Starrail />
 	</div>
 
@@ -59,6 +135,6 @@
 <style>
 	.tab-inactive {
 		background-color: hsl(212, 18%, 12%);
-		color: #A8A8A8;
+		color: #a8a8a8;
 	}
 </style>
