@@ -1,4 +1,7 @@
 <script>
+	import ActivityTable from './ActivityTable.svelte';
+	import AlertModal from './AlertModal.svelte';
+
 	import { onMount } from 'svelte';
 
 	export let maxResource;
@@ -8,27 +11,30 @@
 	export let resourceName;
 	export let weekBossName;
 
-	let startTime;
+	let startTime; // Timestamp when timer started
+	let setResource; // Resource value initially set by the user
+	let weekBossSetTime; // Timestamp when week boss counter was last changed by user
 
-	let secondsToMax;
-	let maxTimer = '--:--:--';
-
-	// Current resource value entered by the user and updated by the timer
-	let curResource;
-	// Resource value set by the user
-	let setResource;
+	let weekBossCounter;
+	let timeElapsedInSeconds; // Time elapsed since timer started
+	let curResource; // Current resource value updated by the timer
 
 	let intervalId;
-	let notifyIntervalId;
-
-	// Allows pause of resource update from timer while user is editing so their input isn't overwritten
-	let pause = false;
+	let maxTimer = '--:--:--';
+	let pause = false; // Pause resource update by timer while user editing so input isn't overwritten
 
 	let notify = false;
+	let notifyIntervalId;
 
-	let weekBossSetTime;
+	//Prevent double presses on week boss counter buttons
+	let debounceTimer;
+	let disabled = false;
 
-	// On mount, get the current resource and start time from local storage
+	let screenSizeY;
+
+	let showAlarms = false;
+
+	// On mount, get the current resource, start time, and weekly boss set time from local storage
 	onMount(() => {
 		startTime = +localStorage.getItem('startTime' + tabId) || null;
 		setResource = +localStorage.getItem('setResource' + tabId) || null;
@@ -50,7 +56,7 @@
 		// If localStorage exists, start the timer
 		if (startTime) {
 			const currentTime = new Date().valueOf();
-			const timeElapsedInSeconds = Math.floor((currentTime - startTime) / 1000);
+			timeElapsedInSeconds = Math.floor((currentTime - startTime) / 1000);
 			curResource =
 				Math.floor(timeElapsedInSeconds / 60 / regenTime) + +setResource;
 
@@ -71,17 +77,6 @@
 		return `${timerHrsText}:${timerMinsText}:${timerSecsText}`;
 	}
 
-	//Handle user change of input
-	function hdlChange() {
-		startTime = new Date().valueOf();
-		setResource = curResource;
-
-		localStorage.setItem('setResource' + tabId, setResource);
-		localStorage.setItem('startTime' + tabId, startTime);
-
-		setTimer();
-	}
-
 	// Start the timer
 	function setTimer() {
 		// Clear any existing timers
@@ -90,7 +85,7 @@
 		}
 
 		//Calculate initial timers and parse into strings
-		secondsToMax = (maxResource - setResource) * regenTime * 60;
+		let secondsToMax = (maxResource - setResource) * regenTime * 60;
 		maxTimer = parseTimer(secondsToMax < 0 ? 0 : secondsToMax);
 
 		activityTable.forEach((row) => {
@@ -104,7 +99,7 @@
 		intervalId = setInterval(() => {
 			const currentTime = new Date().valueOf();
 
-			const timeElapsedInSeconds = Math.floor((currentTime - startTime) / 1000);
+			timeElapsedInSeconds = Math.floor((currentTime - startTime) / 1000);
 
 			if (!pause) {
 				curResource =
@@ -169,15 +164,7 @@
 		}
 	}
 
-	let screenSizeY;
-
-	const breakPoint = 860;
-
-	let weekBossCounter;
-
-	let debounceTimer;
-	let disabled = false;
-
+	// Handle week boss counter buttons
 	function hdlCounter(num) {
 		clearTimeout(debounceTimer);
 
@@ -193,99 +180,85 @@
 		}, 100);
 	}
 
-	//end of script marker
-	//------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	//Handle user change of current resource
+	function hdlChange() {
+		startTime = new Date().valueOf();
+		setResource = curResource;
+
+		localStorage.setItem('setResource' + tabId, setResource);
+		localStorage.setItem('startTime' + tabId, startTime);
+
+		setTimer();
+	}
+
+	function setShowAlarms(bool) {
+		showAlarms = bool;
+	}
+
+	// =========================================================
+	// End of script
+	// =========================================================
 </script>
 
 <svelte:window bind:innerHeight={screenSizeY} />
 
-<!-- Table of activities with timers -->
-<div id="timers" class="flex flex-col items-center justify-around mt-12 mb-1">
+<div id="timers" class="flex flex-col items-center justify-around mt-12 mb-1 relative">
 	<div class="w-auto h-auto mx-5">
-		<table id="timer-table" class="table-sm">
-			<tbody>
-				<tr>
-					<th class="header-row text-left">Activity</th>
-					<th class="text-center">Cost</th>
-					<th class="header-row text-left">Reward</th>
-					<th class="text-center">Timer</th>
-					<th class="text-center">Avail.</th>
-				</tr>
-				{#each activityTable as row}
-					<tr
-						class={curResource > row.cost - 1
-							? 'bg-green-700 text-black'
-							: ''}
-					>
-						<td class="text-row">{row.activity}</td>
-						<td class="text-row text-center"
-							>{row.activity === weekBossName && weekBossCounter <= 0
-								? row.modCost
-								: row.cost}</td
-						>
-						<td class="text-row">{row.reward}</td>
-						<td class="text-row text-center">{row.timerString}</td>
-						<td class="text-row text-center"
-							>{curResource < row.cost
-								? 0
-								: Math.floor(curResource / row.cost) || '-'}</td
-						>
-					</tr>
-					<tr style="line-height: 1px">
-						<td class="p-0" colspan="5">
-							<progress
-								class="progress progress-success h-2 w-full"
-								value={row.cost * regenTime * 60 - row.timerSeconds}
-								max={row.cost * regenTime * 60}
-							/>
-						</td>
-					</tr>
-				{/each}
-			</tbody>
-		</table>
+		<ActivityTable
+			{activityTable}
+			{curResource}
+			{weekBossName}
+			{weekBossCounter}
+			{regenTime}
+		/>
 	</div>
 
-	<!-- Weekly boss counter -->
+	<!-- // =========================================================
+	// Weekly boss counter
+	// ========================================================= -->
 	<div class="flex justify-center items-center gap-x-1 w-full px-5 py-1">
 		<p class="mr-5 whitespace-nowrap">{weekBossName}<br /> Remaining:</p>
-		<button
-			class="counter-btn btn btn-xs"
-			on:click={() => {
-				hdlCounter(1);
-			}}>➕</button
-		>
-		<div
-			class="counter-card flex justify-center items-center card bg-base-200 w-20 cursor-default"
-		>
-			<p>{weekBossCounter <= 0 ? 0 : weekBossCounter || '-'} / 3</p>
+		<div class="counter join">
+			<button
+				class="btn join-item h-full min-h-full"
+				on:click={() => {
+					hdlCounter(1);
+				}}>➕</button
+			>
+			<div
+				class=" flex justify-center items-center text-black w-20 cursor-default join-item"
+				style="background-color: #6db4f9;"
+			>
+				<p>{weekBossCounter <= 0 ? 0 : weekBossCounter || '-'} / 3</p>
+			</div>
+			<button
+				class="btn join-item h-full min-h-full"
+				on:click={() => {
+					hdlCounter(-1);
+				}}>➖</button
+			>
 		</div>
-		<button
-			class="counter-btn btn btn-xs"
-			on:click={() => {
-				hdlCounter(-1);
-			}}>➖</button
-		>
 	</div>
 
+	<!-- // =========================================================
+	// Current resource input and progress
+	// ========================================================= -->
 	<div class="flex flex-col items-center gap-y-3">
 		<h3>Current {resourceName} :</h3>
 
-		<!-- Current resource progress and input -->
 		<div
 			class="radial-progress aspect-square pointer-events-none bg-blue-600 text-yellow-300"
 			style={`--value:${
 				isNaN(curResource) ? 0 : (curResource / maxResource) * 100
-			}; --size: ${
-				screenSizeY > breakPoint ? '12rem' : '22vh'
-			}; --thickness: 0.5rem;`}
+			}; --size: ${screenSizeY > 860 ? '12rem' : '22vh'}; --thickness: 0.5rem;`}
 		>
 			<input
 				id={'current-resource' + tabId}
-				class="text-center bg-inherit rounded-lg pointer-events-auto placeholder-shown:border-2 aspect-video"
+				class="resource-input text-center bg-inherit rounded-lg pointer-events-auto placeholder-shown:border-2 aspect-video"
 				type="text"
 				pattern="[0-9]*"
 				inputmode="numeric"
-				max="240"
+				max={maxResource}
 				min="0"
 				maxlength="3"
 				placeholder="---"
@@ -308,8 +281,12 @@
 		</div>
 		<p class="main-timer">Time to full {maxTimer}</p>
 	</div>
+
+	<!-- // =========================================================
+	// Clear timer button
+	// ========================================================= -->
 	<button
-		class=" btn-ghost text-xs"
+		class="responsive-button btn-ghost text-xs"
 		on:click={() => {
 			localStorage.removeItem('startTime' + tabId);
 			localStorage.removeItem('setResource' + tabId);
@@ -318,6 +295,27 @@
 			location.reload();
 		}}>Clear Timer</button
 	>
+
+	<AlertModal {showAlarms} {setShowAlarms} {curResource} {regenTime} {maxResource} />
+
+	<!-- // =========================================================
+		// Show alert modal button
+		// ========================================================= -->
+	<button
+		class="swap swap-flip text-2xl absolute bottom-2 right-5 z-10"
+		class:swap-active={showAlarms}
+		on:click={() => {
+			showAlarms = !showAlarms;
+		}}
+	>
+		<div class="swap-on" />
+		<div class="swap-off">🔔</div>
+		<!-- <div>{showAlarms}</div> -->
+	</button>
+
+	<!-- // =========================================================
+	// End of component
+	// ========================================================= -->
 </div>
 
 <style>
@@ -326,10 +324,7 @@
 		max-height: 750px;
 	}
 
-	.header-row {
-	}
-
-	input {
+	.resource-input {
 		width: 16vh;
 		height: 10vh;
 		max-width: 128px;
@@ -337,30 +332,17 @@
 		font-size: 4.5rem;
 	}
 
-	.counter-card {
+	.counter {
 		height: 4vh;
 		max-height: 2.5rem;
 	}
 
 	@media screen and (max-height: 860px) {
-		.header-row {
-			padding-left: 1vw;
-		}
-
-		#timer-table tr {
-			line-height: 2vh;
-			font-size: 2vh;
-		}
-
-		#timer-table td.text-row {
-			padding: 0.5rem 1vw 0.5rem 1vw;
-		}
-
 		h3 {
 			font-size: 3.5vh;
 		}
 
-		input {
+		.resource-input {
 			font-size: 8vh;
 		}
 
@@ -372,7 +354,7 @@
 			font-size: 2.5vh;
 		}
 
-		button {
+		.responsive-button {
 			font-size: 1.7vh;
 		}
 

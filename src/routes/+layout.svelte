@@ -59,28 +59,7 @@
 		// const reg = await navigator.serviceWorker.ready;
 		// reg.pushManager.subscribe({ userVisibleOnly: true });
 
-		if ('serviceWorker' in navigator) {
-			// Service worker supported
-			const status = await Notification.requestPermission();
-			// if (status !== 'granted')
-			// 	alert(
-			// 		'Please allow notifications to make sure that the application works.',
-			// 	);
-			// navigator.serviceWorker.register('/service-worker.js', {
-			// 	type: dev ? 'module' : 'classic',
-			// });
-			const reg = await navigator.serviceWorker.ready;
-			sub = await reg.pushManager.getSubscription();
-			if (!sub) {
-				const res = await fetch('/notify');
-				const key = await res.json();
-				sub = await reg.pushManager.subscribe({
-					userVisibleOnly: true,
-					applicationServerKey: key,
-				});
-			}
-			console.log('subscription', sub);
-		}
+		
 	});
 </script>
 
