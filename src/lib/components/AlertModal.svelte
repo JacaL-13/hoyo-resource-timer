@@ -15,6 +15,41 @@
 
 	let alertTable = [];
 
+	let subscription;
+
+	onMount(async () => {
+		if (localStorage.getItem('alertTable')) {
+			alertTable = JSON.parse(localStorage.getItem('alertTable'));
+		}
+
+		getSubscription();
+	});
+
+	async function getSubscription() {
+		if ('serviceWorker' in navigator) {
+			// Service worker supported
+			if (Notification.permission === 'default') {
+				await Notification.requestPermission();
+			}
+			if (Notification.permission !== 'granted' && showAlarms) {
+				return notifyDisabled();
+			} else if (Notification.permission === 'granted') {
+				console.log('getting subscription');
+				const reg = await navigator.serviceWorker.ready;
+				subscription = await reg.pushManager.getSubscription();
+				if (!subscription) {
+					const res = await fetch('/notify');
+					const key = await res.json();
+					subscription = await reg.pushManager.subscribe({
+						userVisibleOnly: true,
+						applicationServerKey: key,
+					});
+				}
+				console.log('subscription', subscription.endpoint);
+			}
+		}
+	}
+
 	function parseDate(dateTime) {
 		const today = new Date().getDate();
 
@@ -35,12 +70,6 @@
 		return `${monthName}${day} ${hour}:${minute} ${ampm}`;
 	}
 
-	onMount(() => {
-		if (localStorage.getItem('alertTable')) {
-			alertTable = JSON.parse(localStorage.getItem('alertTable'));
-		}
-	});
-
 	function parseCompleteTime(alertValue) {
 		const completeTimeStamp =
 			new Date().valueOf() + alertValue * 60 * 1000 - curResource * 60 * 1000;
@@ -56,34 +85,19 @@
 	}
 
 	async function hdlAddAlert() {
-		if ('serviceWorker' in navigator) {
-			// Service worker supported
-			const status = await Notification.requestPermission();
-			if (status !== 'granted') {
-				return notifyDisabled();
-			} else {
-				const reg = await navigator.serviceWorker.ready;
-				let sub = await reg.pushManager.getSubscription();
-				if (!sub) {
-					const res = await fetch('/notify');
-					const key = await res.json();
-					sub = await reg.pushManager.subscribe({
-						userVisibleOnly: true,
-						applicationServerKey: key,
-					});
-					console.log('subscription', sub);
-				}
-				// Add blank row to alertTable if one doesn't already exist and focus input
-				if (!alertTable.some((row) => row.alertValue === null)) {
-					alertTable = [
-						...alertTable,
-						{
-							alertValue: null,
-							completeTime: '--:--:--',
-						},
-					];
-				}
-			}
+		if (Notification.permission !== 'granted') {
+			return notifyDisabled();
+		}
+
+		// Add blank row to alertTable if one doesn't already exist
+		if (!alertTable.some((row) => row.alertValue === null)) {
+			alertTable = [
+				...alertTable,
+				{
+					alertValue: null,
+					completeTime: '--:--:--',
+				},
+			];
 		}
 	}
 
@@ -91,19 +105,18 @@
 		let index = event.target.parentNode.parentNode.rowIndex;
 		index = index - Math.floor(index / 2) - 1;
 
-		// If input value is a duplicate, delete row.
+		// If input value is a duplicate, clear input.
 		if (
 			alertTable.some(
 				(row) => row.alertValue === event.target.value && row.alertValue !== null,
 			)
 		) {
-			alertTable.splice(index, 1);
+			event.target.value = '';
 			duplicateEntry();
 		} else {
 			alertTable[index].alertValue = event.target.value;
 			alertTable[index].completeTime = parseCompleteTime(event.target.value);
 		}
-		alertTable = alertTable;
 	}
 
 	function duplicateEntry() {
@@ -111,7 +124,7 @@
 
 		setTimeout(() => {
 			alertDuplicateEntry = false;
-		}, 1000);
+		}, 2000);
 	}
 
 	function enforceNumeric(event) {
@@ -144,7 +157,11 @@
 	$: if (browser && alertTable.length > 0) {
 		localStorage.setItem('alertTable', JSON.stringify(alertTable));
 	}
-	$: console.log('alertTable: ', alertTable);
+	// $: console.log('alertTable: ', alertTable);
+
+	$: if (showAlarms) {
+		getSubscription();
+	}
 
 	// =========================================================
 	// end of script

@@ -7,7 +7,7 @@
 		tabId: 'Starrail',
 		resourceName: 'Trailblaze Power',
 		weekBossName: 'Echo of War',
-		notifySrc: 'https://www.youtube.com/watch?v=KvKNieeClHc',
+		// notifySrc: 'https://www.youtube.com/watch?v=KvKNieeClHc',
 		activityTable: [
 			{
 				activity: 'Calyx',

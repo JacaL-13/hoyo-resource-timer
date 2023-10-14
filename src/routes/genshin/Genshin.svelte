@@ -7,7 +7,7 @@
 		tabId: 'Genshin',
 		resourceName: 'Original Resin',
 		weekBossName: 'Weekly Bosses',
-		notifySrc: '',
+		// notifySrc: '',
 		activityTable: [
 			{
 				activity: 'Ley Line Outcrops',
