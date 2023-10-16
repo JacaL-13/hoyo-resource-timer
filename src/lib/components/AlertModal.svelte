@@ -2,12 +2,31 @@
 	import { fade } from 'svelte/transition';
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
+	import { v4 as uuidv4 } from 'uuid';
+
+	import { db } from '$lib/firebase';
+	import {
+		collection,
+		getDocs,
+		query,
+		where,
+		doc,
+		orderBy,
+		deleteDoc,
+		Timestamp,
+		setDoc,
+		updateDoc,
+	} from 'firebase/firestore';
+	import { getAuth, signInAnonymously } from 'firebase/auth';
 
 	export let showAlarms;
 	export let setShowAlarms;
+	export let setResource;
 	export let curResource = 0;
 	export let regenTime;
 	export let maxResource;
+	export let resourceName;
+	export let currentTime;
 
 	let alertNotifsOff = false;
 	let alertDuplicateEntry = false;
@@ -17,37 +36,63 @@
 
 	let subscription;
 
-	onMount(async () => {
-		if (localStorage.getItem('alertTable')) {
-			alertTable = JSON.parse(localStorage.getItem('alertTable'));
-		}
+	const auth = getAuth();
 
-		getSubscription();
+	let querySnapshot = [];
+
+	//midnight of tomorrow
+	const midnight = new Date(
+		new Date().getFullYear(),
+		new Date().getMonth(),
+		new Date().getDate() + 1,
+		0,
+		0,
+		0,
+	);
+
+	onMount(async () => {
+		if ('serviceWorker' in navigator && Notification.permission === 'granted') {
+			const reg = await navigator.serviceWorker.ready;
+			subscription = await reg.pushManager.getSubscription();
+			if (!subscription) {
+				const res = await fetch('/notify');
+				const key = await res.json();
+				subscription = await reg.pushManager.subscribe({
+					userVisibleOnly: true,
+					applicationServerKey: key,
+				});
+			}
+
+			await signInAnonymously(auth)
+				.then(() => {})
+				.catch((err) => console.error('server error: ', err));
+
+			const q = query(
+				collection(db, 'alerts'),
+				where('userId', '==', auth.currentUser.uid),
+				orderBy('createdAt', 'asc'),
+			);
+
+			querySnapshot = await getDocs(q);
+
+			querySnapshot.forEach((doc) => {
+				alertTable = [...alertTable, { alertId: doc.id, ...doc.data() }];
+			});
+		}
 	});
 
-	async function getSubscription() {
-		if ('serviceWorker' in navigator) {
-			// Service worker supported
-			if (Notification.permission === 'default') {
-				await Notification.requestPermission();
-			}
-			if (Notification.permission !== 'granted' && showAlarms) {
-				return notifyDisabled();
-			} else if (Notification.permission === 'granted') {
-				console.log('getting subscription');
-				const reg = await navigator.serviceWorker.ready;
-				subscription = await reg.pushManager.getSubscription();
-				if (!subscription) {
-					const res = await fetch('/notify');
-					const key = await res.json();
-					subscription = await reg.pushManager.subscribe({
-						userVisibleOnly: true,
-						applicationServerKey: key,
-					});
-				}
-				console.log('subscription', subscription.endpoint);
-			}
-		}
+	function calculateTimeStamp(alertValue) {
+		return alertValue
+			? new Date().valueOf() + (alertValue - curResource) * regenTime * 60 * 1000
+			: null;
+	}
+
+	function parseCompleteString(timeStamp) {
+		return timeStamp
+			? timeStamp < new Date().valueOf()
+				? 'Complete!'
+				: parseDate(new Date(timeStamp))
+			: '--:--';
 	}
 
 	function parseDate(dateTime) {
@@ -64,16 +109,13 @@
 				? 'tomorrow'
 				: dateTime.getDate();
 		const hour = (dateTime.getHours() + 24) % 12 || 12;
-		const minute = dateTime.getMinutes();
+		const minute =
+			dateTime.getMinutes() < 10
+				? '0' + dateTime.getMinutes()
+				: dateTime.getMinutes();
 		const ampm = dateTime.getHours() >= 12 ? 'pm' : 'am';
 
 		return `${monthName}${day} ${hour}:${minute} ${ampm}`;
-	}
-
-	function parseCompleteTime(alertValue) {
-		const completeTimeStamp =
-			new Date().valueOf() + alertValue * 60 * 1000 - curResource * 60 * 1000;
-		return parseDate(new Date(completeTimeStamp));
 	}
 
 	function notifyDisabled() {
@@ -95,27 +137,73 @@
 				...alertTable,
 				{
 					alertValue: null,
-					completeTime: '--:--:--',
+					completeTimeStamp: null,
+					completeTimeString: '--:--',
 				},
 			];
 		}
 	}
 
-	function hdlInputChange(event) {
+	async function hdlInputChange(event) {
 		let index = event.target.parentNode.parentNode.rowIndex;
 		index = index - Math.floor(index / 2) - 1;
 
 		// If input value is a duplicate, clear input.
 		if (
 			alertTable.some(
-				(row) => row.alertValue === event.target.value && row.alertValue !== null,
+				(row) =>
+					row.alertValue === +event.target.value && row.alertValue !== null,
 			)
 		) {
 			event.target.value = '';
 			duplicateEntry();
 		} else {
-			alertTable[index].alertValue = event.target.value;
-			alertTable[index].completeTime = parseCompleteTime(event.target.value);
+			const completeTimeStamp = calculateTimeStamp(event.target.value);
+			const completeTimeString = parseCompleteString(completeTimeStamp);
+
+			const isComplete = completeTimeStamp <= new Date().valueOf();
+			const isSoonest = alertTable.every((row) => {
+				return (
+					row.alertValue === null ||
+					row.completeTimeStamp < new Date().valueOf() ||
+					row.alertValue > event.target.value
+				);
+			});
+
+			//if alert is in the future and sooner than any other alert, set notification
+			// if (
+			// 	!isComplete && isSoonest
+			// ) {
+			// 	console.log('setting notification');
+			// 	const res = await fetch('/notify', {
+			// 		method: 'POST',
+			// 		body: JSON.stringify({
+			// 			subscription,
+			// 			title: 'Schedule Timer',
+			// 			body: {
+			// 				completeTimeStamp: completeTimeStamp,
+			// 			},
+			// 			headers: {
+			// 				'Content-Type': 'application/json',
+			// 			},
+			// 		}),
+			// 	});
+			// }
+
+			alertTable[index].alertValue = parseInt(event.target.value);
+			alertTable[index].completeTimeStamp = completeTimeStamp;
+			alertTable[index].completeTimeString = completeTimeString;
+
+			alertTable = alertTable;
+
+			// Add alert to database if it's a new entry, else update existing entry
+			setDoc(doc(db, 'alerts', alertTable[index].alertId || uuidv4()), {
+				userId: auth.currentUser.uid,
+				alertValue: parseInt(event.target.value),
+				completeTimeStamp,
+				completeTimeString,
+				createdAt: alertTable[index].createdAt || Timestamp.fromDate(new Date()),
+			});
 		}
 	}
 
@@ -124,7 +212,7 @@
 
 		setTimeout(() => {
 			alertDuplicateEntry = false;
-		}, 2000);
+		}, 2500);
 	}
 
 	function enforceNumeric(event) {
@@ -144,24 +232,71 @@
 		let index = event.target.parentNode.parentNode.rowIndex;
 		index = index - Math.floor(index / 2) - 1;
 
+		//delete alert from database
+		if (alertTable[index].alertId !== undefined) {
+			const docRef = doc(db, 'alerts', alertTable[index].alertId);
+			deleteDoc(docRef);
+		}
+
 		alertTable.splice(index, 1);
 
 		alertTable = alertTable;
-
-		if (alertTable.length === 0) {
-			localStorage.setItem('alertTable', JSON.stringify(alertTable));
-		}
 	}
 
-	// Save alertTable to localStorage
-	$: if (browser && alertTable.length > 0) {
-		localStorage.setItem('alertTable', JSON.stringify(alertTable));
+	$: if (showAlarms && Notification.permission !== 'granted') {
+		alertNotifsOff = true;
+	} else {
+		alertNotifsOff = false;
 	}
-	// $: console.log('alertTable: ', alertTable);
 
-	$: if (showAlarms) {
-		getSubscription();
+	// if currentTime is past midnight of renderTime, update alertTable
+	$: if (currentTime > midnight.valueOf() && alertTable.length > 0) {
+		alertTable.forEach((row) => {
+			row.completeTimeString = parseCompleteString(row.completeTimeStamp);
+
+			//update database
+			const docRef = doc(db, 'alerts', row.alertId);
+			updateDoc(docRef, {
+				completeTimeString: row.completeTimeString,
+			});
+		});
 	}
+
+	function setResourceChanged() {
+		alertTable.forEach((row) => {
+			const newTimeStamp = calculateTimeStamp(row.alertValue);
+			if (newTimeStamp !== row.completeTimeStamp) {
+			}
+		});
+	}
+
+	$: if (setResource) {
+		setResourceChanged();
+	}
+
+	// if setResource changes update alertTable, database, and notifications
+	// $: if (setResource !== alertSetResource) {
+	// 	console.log('setResource changed');
+	// 	alertSetResource = setResource;
+	// curResource = setResource;
+
+	// 	// //update notifications
+	// 	// fetch('/notify', {
+	// 	// 	method: 'POST',
+	// 	// 	body: JSON.stringify({
+	// 	// 		subscription,
+	// 	// 		title: 'Schedule Timer',
+	// 	// 		body: {
+	// 	// 			completeTimeStamp: row.completeTimeStamp,
+	// 	// 			notificationText: `${resourceName} at ${row.alertValue}!`,
+	// 	// 		},
+	// 	// 		headers: {
+	// 	// 			'Content-Type': 'application/json',
+	// 	// 		},
+	// 	// 	}),
+	// 	// });
+	// });
+	// }
 
 	// =========================================================
 	// end of script
@@ -199,6 +334,7 @@
 							class:text-black={row.alertValue &&
 								curResource > row.alertValue - 1}
 							><input
+								id={`${resourceName}-alert-input-${row.alertId}`}
 								class="text-center bg-inherit rounded-lg pointer-events-auto border-2 w-14 h-7"
 								style="border-width: 1px;"
 								type="text"
@@ -229,7 +365,8 @@
 							class:bg-green-700={row.alertValue &&
 								curResource > row.alertValue - 1}
 							class:text-black={row.alertValue &&
-								curResource > row.alertValue - 1}>{row.completeTime}</td
+								curResource > row.alertValue - 1}
+							>{row.completeTimeString}</td
 						>
 						<td class="text-row text-center w-1/12"
 							><button
@@ -254,7 +391,12 @@
 		<button class="btn" on:click={hdlAddAlert}>➕</button>
 		<label class="label cursor-pointer absolute bottom-3 left-3">
 			<span class="label-text mr-2">24hr time</span>
-			<input type="checkbox" class="checkbox checkbox-sm" bind:checked={time24hr} />
+			<input
+				type="checkbox"
+				id={`${resourceName}-24hour-check`}
+				class="checkbox checkbox-sm"
+				bind:checked={time24hr}
+			/>
 		</label>
 		<div class="modal-action">
 			<button

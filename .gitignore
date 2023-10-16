@@ -8,3 +8,4 @@ node_modules
 !.env.example
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+hoyo-resource-timer-firebase-adminsdk-6wrlx-9f0cd01ed0.json

@@ -34,6 +34,8 @@
 
 	let showAlarms = false;
 
+	let currentTime = new Date().valueOf();
+
 	// On mount, get the current resource, start time, and weekly boss set time from local storage
 	onMount(() => {
 		startTime = +localStorage.getItem('startTime' + tabId) || null;
@@ -55,7 +57,7 @@
 
 		// If localStorage exists, start the timer
 		if (startTime) {
-			const currentTime = new Date().valueOf();
+			currentTime = new Date().valueOf();
 			timeElapsedInSeconds = Math.floor((currentTime - startTime) / 1000);
 			curResource =
 				Math.floor(timeElapsedInSeconds / 60 / regenTime) + +setResource;
@@ -97,7 +99,7 @@
 
 		//Every second, update timers and resource value
 		intervalId = setInterval(() => {
-			const currentTime = new Date().valueOf();
+			currentTime = new Date().valueOf();
 
 			timeElapsedInSeconds = Math.floor((currentTime - startTime) / 1000);
 
@@ -296,7 +298,10 @@
 		}}>Clear Timer</button
 	>
 
-	<AlertModal {showAlarms} {setShowAlarms} {curResource} {regenTime} {maxResource} />
+	<!-- // =========================================================
+	// Alert modal
+	// ========================================================= -->
+	<AlertModal {showAlarms} {setShowAlarms} {setResource} {curResource} {regenTime} {maxResource} {resourceName} {currentTime}/>
 
 	<!-- // =========================================================
 		// Show alert modal button
