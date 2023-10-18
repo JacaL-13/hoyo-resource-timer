@@ -27,18 +27,20 @@
 	export let maxResource;
 	export let resourceName;
 	export let currentTime;
-
-	let alertNotifsOff = false;
-	let alertDuplicateEntry = false;
-	let time24hr = false;
-
-	let alertTable = [];
-
-	let subscription;
+	export let timeElapsedInSeconds;
 
 	const auth = getAuth();
 
+	//web-push subscription
+	let subscription;
+
+	let alertNotifsOff = false;
+	let alertDuplicateEntry = false;
+
+	let time24hr = false;
+
 	let querySnapshot = [];
+	let alertTable = [];
 
 	//midnight of tomorrow
 	const midnight = new Date(
@@ -67,23 +69,45 @@
 				.then(() => {})
 				.catch((err) => console.error('server error: ', err));
 
-			const q = query(
-				collection(db, 'alerts'),
-				where('userId', '==', auth.currentUser.uid),
-				orderBy('createdAt', 'asc'),
-			);
+			}
 
-			querySnapshot = await getDocs(q);
+			refreshAlertTable();
+		});
 
-			querySnapshot.forEach((doc) => {
-				alertTable = [...alertTable, { alertId: doc.id, ...doc.data() }];
-			});
-		}
-	});
+	async function refreshAlertTable() {
+		alertTable = [];
+
+		const q = query(
+			collection(db, 'alerts'),
+			where('userId', '==', auth.currentUser.uid),
+			orderBy('createdAt', 'asc'),
+		);
+
+		querySnapshot = await getDocs(q);
+
+		querySnapshot.forEach((doc) => {
+			const { alertValue, createdAt } = doc.data();
+			const completeTimeStamp = calculateTimeStamp(alertValue);
+			const completeTimeString = parseCompleteString(completeTimeStamp);
+
+			const TableEntry = {
+				alertId: doc.id,
+				alertValue,
+				completeTimeStamp,
+				completeTimeString,
+				isComplete: completeTimeStamp <= new Date().valueOf(),
+				createdAt,
+			};
+
+			alertTable = [...alertTable, TableEntry];
+		});
+	}
 
 	function calculateTimeStamp(alertValue) {
+		const timeSinceAdded = timeElapsedInSeconds % (regenTime * 60);
 		return alertValue
-			? new Date().valueOf() + (alertValue - curResource) * regenTime * 60 * 1000
+			? new Date().valueOf() +
+					((alertValue - curResource) * regenTime * 60 - timeSinceAdded) * 1000
 			: null;
 	}
 
@@ -98,10 +122,6 @@
 	function parseDate(dateTime) {
 		const today = new Date().getDate();
 
-		const monthName =
-			dateTime.getDate() === today
-				? ''
-				: dateTime.toLocaleString('default', { month: 'short' } + '/');
 		const day =
 			dateTime.getDate() === today
 				? 'today'
@@ -115,7 +135,7 @@
 				: dateTime.getMinutes();
 		const ampm = dateTime.getHours() >= 12 ? 'pm' : 'am';
 
-		return `${monthName}${day} ${hour}:${minute} ${ampm}`;
+		return `${day} ${hour}:${minute} ${ampm}`;
 	}
 
 	function notifyDisabled() {
@@ -171,28 +191,28 @@
 			});
 
 			//if alert is in the future and sooner than any other alert, set notification
-			// if (
-			// 	!isComplete && isSoonest
-			// ) {
-			// 	console.log('setting notification');
-			// 	const res = await fetch('/notify', {
-			// 		method: 'POST',
-			// 		body: JSON.stringify({
-			// 			subscription,
-			// 			title: 'Schedule Timer',
-			// 			body: {
-			// 				completeTimeStamp: completeTimeStamp,
-			// 			},
-			// 			headers: {
-			// 				'Content-Type': 'application/json',
-			// 			},
-			// 		}),
-			// 	});
-			// }
+			if (!isComplete && isSoonest) {
+				console.log('setting notification');
+				const res = await fetch('/notify', {
+					method: 'POST',
+					body: JSON.stringify({
+						subscription,
+						title: 'Schedule Timer',
+						body: {
+							completeTimeStamp: completeTimeStamp,
+						},
+						headers: {
+							'Content-Type': 'application/json',
+						},
+					}),
+				});
+			}
 
+			//Add new alert to alertTable
 			alertTable[index].alertValue = parseInt(event.target.value);
 			alertTable[index].completeTimeStamp = completeTimeStamp;
 			alertTable[index].completeTimeString = completeTimeString;
+			alertTable[index].isComplete = isComplete;
 
 			alertTable = alertTable;
 
@@ -202,6 +222,7 @@
 				alertValue: parseInt(event.target.value),
 				completeTimeStamp,
 				completeTimeString,
+				isComplete,
 				createdAt: alertTable[index].createdAt || Timestamp.fromDate(new Date()),
 			});
 		}
@@ -250,7 +271,7 @@
 	}
 
 	// if currentTime is past midnight of renderTime, update alertTable
-	$: if (currentTime > midnight.valueOf() && alertTable.length > 0) {
+	$: if (currentTime > midnight.valueOf() && alertTable && alertTable.length > 0) {
 		alertTable.forEach((row) => {
 			row.completeTimeString = parseCompleteString(row.completeTimeStamp);
 

@@ -301,7 +301,17 @@
 	<!-- // =========================================================
 	// Alert modal
 	// ========================================================= -->
-	<AlertModal {showAlarms} {setShowAlarms} {setResource} {curResource} {regenTime} {maxResource} {resourceName} {currentTime}/>
+	<AlertModal
+		{showAlarms}
+		{setShowAlarms}
+		{setResource}
+		{curResource}
+		{regenTime}
+		{maxResource}
+		{resourceName}
+		{currentTime}
+		{timeElapsedInSeconds}
+	/>
 
 	<!-- // =========================================================
 		// Show alert modal button
