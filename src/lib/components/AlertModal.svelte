@@ -34,8 +34,8 @@
 	//web-push subscription
 	let subscription;
 
-	let alertNotifsOff = false;
-	let alertDuplicateEntry = false;
+	let showNotifsOffAlert = false;
+	let showDuplicateEntryAlert = false;
 
 	let time24hr = false;
 
@@ -68,11 +68,10 @@
 			await signInAnonymously(auth)
 				.then(() => {})
 				.catch((err) => console.error('server error: ', err));
+		}
 
-			}
-
-			refreshAlertTable();
-		});
+		refreshAlertTable();
+	});
 
 	async function refreshAlertTable() {
 		alertTable = [];
@@ -86,13 +85,17 @@
 		querySnapshot = await getDocs(q);
 
 		querySnapshot.forEach((doc) => {
-			const { alertValue, createdAt } = doc.data();
+			const { userId, subscriptionEndpoint, alertValue, alertMessage, createdAt } =
+				doc.data();
 			const completeTimeStamp = calculateTimeStamp(alertValue);
 			const completeTimeString = parseCompleteString(completeTimeStamp);
 
 			const TableEntry = {
 				alertId: doc.id,
+				userId,
+				subscriptionEndpoint,
 				alertValue,
+				alertMessage,
 				completeTimeStamp,
 				completeTimeString,
 				isComplete: completeTimeStamp <= new Date().valueOf(),
@@ -138,17 +141,17 @@
 		return `${day} ${hour}:${minute} ${ampm}`;
 	}
 
-	function notifyDisabled() {
-		alertNotifsOff = true;
+	function alertNotifsOff() {
+		showNotifsOffAlert = true;
 
 		setTimeout(() => {
-			alertNotifsOff = false;
+			showNotifsOffAlert = false;
 		}, 5000);
 	}
 
 	async function hdlAddAlert() {
 		if (Notification.permission !== 'granted') {
-			return notifyDisabled();
+			return alertNotifsOff();
 		}
 
 		// Add blank row to alertTable if one doesn't already exist
@@ -164,19 +167,23 @@
 		}
 	}
 
+	// ---------------------------------------------------------
+	// Handle Input changed. Update/add new alert.
+	// ---------------------------------------------------------
 	async function hdlInputChange(event) {
 		let index = event.target.parentNode.parentNode.rowIndex;
 		index = index - Math.floor(index / 2) - 1;
 
-		// If input value is a duplicate, clear input.
+		// If input value is a duplicate, undo change.
 		if (
 			alertTable.some(
 				(row) =>
 					row.alertValue === +event.target.value && row.alertValue !== null,
 			)
 		) {
-			event.target.value = '';
-			duplicateEntry();
+			//undo change
+			event.target.value = alertTable[index].alertValue;
+			alertDuplicateEntry();
 		} else {
 			const completeTimeStamp = calculateTimeStamp(event.target.value);
 			const completeTimeString = parseCompleteString(completeTimeStamp);
@@ -208,35 +215,48 @@
 				});
 			}
 
-			//Add new alert to alertTable
-			alertTable[index].alertValue = parseInt(event.target.value);
-			alertTable[index].completeTimeStamp = completeTimeStamp;
-			alertTable[index].completeTimeString = completeTimeString;
-			alertTable[index].isComplete = isComplete;
-
-			alertTable = alertTable;
-
-			// Add alert to database if it's a new entry, else update existing entry
-			setDoc(doc(db, 'alerts', alertTable[index].alertId || uuidv4()), {
+			//Add alert to alertTable
+			const tableEntry = {
+				alertId: alertTable[index].alertId || uuidv4(),
 				userId: auth.currentUser.uid,
+				subscriptionEndpoint: subscription.endpoint,
 				alertValue: parseInt(event.target.value),
+				alertMessage: `${resourceName} at ${event.target.value}!`,
 				completeTimeStamp,
 				completeTimeString,
 				isComplete,
 				createdAt: alertTable[index].createdAt || Timestamp.fromDate(new Date()),
+			};
+
+			alertTable = [
+				...alertTable.slice(0, index),
+				tableEntry,
+				...alertTable.slice(index + 1),
+			];
+
+			// Add alert to database if it's a new entry, else update existing entry
+			setDoc(doc(db, 'alerts', tableEntry.alertId), {
+				userId: tableEntry.userId,
+				subscriptionEndpoint: tableEntry.subscriptionEndpoint,
+				alertValue: tableEntry.alertValue,
+				alertMessage: tableEntry.alertMessage,
+				completeTimeStamp,
+				completeTimeString,
+				isComplete,
+				createdAt: tableEntry.createdAt,
 			});
 		}
 	}
 
-	function duplicateEntry() {
-		alertDuplicateEntry = true;
+	function alertDuplicateEntry() {
+		showDuplicateEntryAlert = true;
 
 		setTimeout(() => {
-			alertDuplicateEntry = false;
+			showDuplicateEntryAlert = false;
 		}, 2500);
 	}
 
-	function enforceNumeric(event) {
+	function hdlInput(event) {
 		let index = event.target.parentNode.parentNode.rowIndex;
 		index = index - Math.floor(index / 2) - 1;
 
@@ -265,59 +285,19 @@
 	}
 
 	$: if (showAlarms && Notification.permission !== 'granted') {
-		alertNotifsOff = true;
+		showNotifsOffAlert = true;
 	} else {
-		alertNotifsOff = false;
+		showNotifsOffAlert = false;
 	}
 
 	// if currentTime is past midnight of renderTime, update alertTable
 	$: if (currentTime > midnight.valueOf() && alertTable && alertTable.length > 0) {
-		alertTable.forEach((row) => {
-			row.completeTimeString = parseCompleteString(row.completeTimeStamp);
-
-			//update database
-			const docRef = doc(db, 'alerts', row.alertId);
-			updateDoc(docRef, {
-				completeTimeString: row.completeTimeString,
-			});
-		});
-	}
-
-	function setResourceChanged() {
-		alertTable.forEach((row) => {
-			const newTimeStamp = calculateTimeStamp(row.alertValue);
-			if (newTimeStamp !== row.completeTimeStamp) {
-			}
-		});
+		refreshAlertTable()
 	}
 
 	$: if (setResource) {
-		setResourceChanged();
+		refreshAlertTable();
 	}
-
-	// if setResource changes update alertTable, database, and notifications
-	// $: if (setResource !== alertSetResource) {
-	// 	console.log('setResource changed');
-	// 	alertSetResource = setResource;
-	// curResource = setResource;
-
-	// 	// //update notifications
-	// 	// fetch('/notify', {
-	// 	// 	method: 'POST',
-	// 	// 	body: JSON.stringify({
-	// 	// 		subscription,
-	// 	// 		title: 'Schedule Timer',
-	// 	// 		body: {
-	// 	// 			completeTimeStamp: row.completeTimeStamp,
-	// 	// 			notificationText: `${resourceName} at ${row.alertValue}!`,
-	// 	// 		},
-	// 	// 		headers: {
-	// 	// 			'Content-Type': 'application/json',
-	// 	// 		},
-	// 	// 	}),
-	// 	// });
-	// });
-	// }
 
 	// =========================================================
 	// end of script
@@ -325,12 +305,12 @@
 </script>
 
 <div class="modal" class:modal-open={showAlarms}>
-	{#if alertNotifsOff}
+	{#if showNotifsOffAlert}
 		<div class="toast toast-top toast-start z-10" transition:fade>
 			<div class="alert alert-info">Enable notifications to receive alerts.</div>
 		</div>
 	{/if}
-	{#if alertDuplicateEntry}
+	{#if showDuplicateEntryAlert}
 		<div class="alert alert-info absolute w-1/2 z-10" transition:fade>
 			<span>Alert already exists.</span>
 		</div>
@@ -366,7 +346,7 @@
 								maxlength="3"
 								value={row.alertValue}
 								on:input={(event) => {
-									enforceNumeric(event);
+									hdlInput(event);
 								}}
 								on:focus={(event) => {
 									event.target.select();
