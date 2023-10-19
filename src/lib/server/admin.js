@@ -5,6 +5,8 @@ import { FB_CLIENT_EMAIL, FB_PRIVATE_KEY, FB_PROJECT_ID } from '$env/static/priv
 
 import pkg from 'firebase-admin';
 
+const { privateKey } = JSON.parse(FB_PRIVATE_KEY);
+
 const apps = getApps();
 
 if (!apps.length) {
@@ -12,7 +14,7 @@ if (!apps.length) {
 		credential: pkg.credential.cert({
 			projectId: FB_PROJECT_ID,
 			clientEmail: FB_CLIENT_EMAIL,
-			privateKey: FB_PRIVATE_KEY,
+			privateKey: privateKey,
 		}),
 	});
 }
