@@ -60,3 +60,8 @@ self.addEventListener('fetch', (event) => {
 
 	event.respondWith(respond());
 });
+
+self.addEventListener('push', (event) => {
+	console.log('push event', event);
+	// if (event.data.text() === 'new-issue')
+})

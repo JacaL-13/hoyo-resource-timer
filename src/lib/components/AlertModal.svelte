@@ -64,10 +64,6 @@
 					applicationServerKey: key,
 				});
 			}
-
-			await signInAnonymously(auth)
-				.then(() => {})
-				.catch((err) => console.error('server error: ', err));
 		}
 
 		refreshAlertTable();
@@ -75,6 +71,10 @@
 
 	async function refreshAlertTable() {
 		alertTable = [];
+
+		await signInAnonymously(auth)
+			.then(() => {})
+			.catch((err) => console.error('server error: ', err));
 
 		const q = query(
 			collection(db, 'alerts'),
@@ -84,25 +84,39 @@
 
 		querySnapshot = await getDocs(q);
 
-		querySnapshot.forEach((doc) => {
-			const { userId, subscriptionEndpoint, alertValue, alertMessage, createdAt } =
-				doc.data();
-			const completeTimeStamp = calculateTimeStamp(alertValue);
-			const completeTimeString = parseCompleteString(completeTimeStamp);
+		querySnapshot.forEach((document) => {
+			if (!alertTable.some((row) => row.alertId === document.id)) {
+				const {
+					userId,
+					subscriptionEndpoint,
+					alertValue,
+					alertMessage,
+					createdAt,
+				} = document.data();
+				const completeTimeStamp = calculateTimeStamp(alertValue);
+				const completeTimeString = parseCompleteString(completeTimeStamp);
 
-			const TableEntry = {
-				alertId: doc.id,
-				userId,
-				subscriptionEndpoint,
-				alertValue,
-				alertMessage,
-				completeTimeStamp,
-				completeTimeString,
-				isComplete: completeTimeStamp <= new Date().valueOf(),
-				createdAt,
-			};
+				const tableEntry = {
+					alertId: document.id,
+					userId,
+					subscriptionEndpoint,
+					alertValue,
+					alertMessage,
+					completeTimeStamp,
+					completeTimeString,
+					isComplete: completeTimeStamp <= new Date().valueOf(),
+					createdAt,
+				};
 
-			alertTable = [...alertTable, TableEntry];
+				alertTable = [...alertTable, tableEntry];
+
+				//update completeTimeStamp and completeTimeString in database
+				updateDoc(doc(db, 'alerts', document.id), {
+					completeTimeStamp,
+					completeTimeString,
+					isComplete: tableEntry.isComplete,
+				});
+			}
 		});
 	}
 
@@ -197,24 +211,6 @@
 				);
 			});
 
-			//if alert is in the future and sooner than any other alert, set notification
-			if (!isComplete && isSoonest) {
-				console.log('setting notification');
-				const res = await fetch('/notify', {
-					method: 'POST',
-					body: JSON.stringify({
-						subscription,
-						title: 'Schedule Timer',
-						body: {
-							completeTimeStamp: completeTimeStamp,
-						},
-						headers: {
-							'Content-Type': 'application/json',
-						},
-					}),
-				});
-			}
-
 			//Add alert to alertTable
 			const tableEntry = {
 				alertId: alertTable[index].alertId || uuidv4(),
@@ -290,9 +286,9 @@
 		showNotifsOffAlert = false;
 	}
 
-	// if currentTime is past midnight of renderTime, update alertTable
+	// if currentTime is past midnight of render time, update alertTable
 	$: if (currentTime > midnight.valueOf() && alertTable && alertTable.length > 0) {
-		refreshAlertTable()
+		refreshAlertTable();
 	}
 
 	$: if (setResource) {

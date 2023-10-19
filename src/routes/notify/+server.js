@@ -19,69 +19,65 @@ webPush.setVapidDetails(
 
 let timeoutId;
 
-let nextNotifTime = Infinity;
+let nextNotifTime = 86400000;
 
 let alerts = [];
 
-async function serverStart() {
-	await getAlerts();
+schedule.gracefulShutdown()
+const job = schedule.scheduleJob('*/5 * * * * *', sendNotifs);
 
-	nextNotifTime = getNextNotifTime();
-
-	setTimer();
-}
+setTimer();
 
 async function getAlerts() {
-	console.log('getting next notif time');
-
 	const alertsSnap = await adminDB.collection('alerts').get();
 	alerts = alertsSnap.docs.map((doc) => {
 		return { alertId: doc.id, ...doc.data() };
 	});
 }
 
-function getNextNotifTime() {
-	return alerts.reduce((acc, alert) => {
-		if (alert.completeTimeStamp < acc) {
-			return alert.completeTimeStamp;
-		}
-		return acc;
-	}, Infinity);
-}
-
-function setTimer() {
-	console.log(`Setting timer for ${(nextNotifTime - Date.now()) / 1000} seconds.`)
-	clearTimeout(timeoutId);
-	timeoutId = setTimeout(() => {
-		sendNotifs();
-	}, nextNotifTime - Date.now());
+async function setTimer() {
+	console.log('setting timer');
+	//Run node-schdule job every 30 seconds
 }
 
 async function sendNotifs() {
-	await getAlerts()
+	await getAlerts();
 
 	const alertsToSend = alerts.filter((alert) => {
 		return alert.completeTimeStamp <= Date.now() && !alert.isComplete;
-	})
+	});
 
-	console.log('alertsToSend', alertsToSend);
+	console.log('alerts to send', alertsToSend);
+
+	//update isComplete to true in database
+	const batch = adminDB.batch();
+	alertsToSend.forEach((alert) => {
+		//send notification
+		const payload = JSON.stringify({
+			title: 'Hoyo Resource Timer',
+			body: `${alert.name} is ready!`,
+			icon: '/favicon.ico',
+			badge: '/favicon.ico',
+			data: {
+				url: 'https://hoyoresourcetimer.com',
+			},
+		});
+		const pushSubscription = {
+			endpoint: alert.subcriptionEndpoint,
+		};
+
+		webPush.sendNotification(pushSubscription, payload).catch((error) => {
+			console.error(error.stack);
+		});
+		const docRef = adminDB.collection('alerts').doc(alert.alertId);
+		// batch.update(docRef, {
+		// 	isComplete: true,
+		// });
+	});
+	await batch.commit();
+	console.log('commit batch')
 }
 
 export function GET() {
 	return json(PUBLIC_VAPID_KEY);
-}
-
-export async function POST({ request }) {
-	const { body } = await request.json();
-
-	if (body.completeTimeStamp < nextNotifTime) {
-		nextNotifTime = body.completeTimeStamp;
-		setTimer()
-	}
-
-	const { completeTimeStamp } = body;
-
-	getAlerts();
-
-	return json('ok');
 }
