@@ -3,6 +3,7 @@
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
 	import { v4 as uuidv4 } from 'uuid';
+	import {dev} from '$app/environment';
 
 	import { db } from '$lib/firebase';
 	import {
@@ -43,7 +44,7 @@
 	let alertTable = [];
 
 	//midnight of tomorrow
-	const midnight = new Date(
+	let midnight = new Date(
 		new Date().getFullYear(),
 		new Date().getMonth(),
 		new Date().getDate() + 1,
@@ -54,10 +55,13 @@
 
 	onMount(async () => {
 		if ('serviceWorker' in navigator && Notification.permission === 'granted') {
+			navigator.serviceWorker.register('/service-worker.js', {
+				type: dev ? 'module' : 'classic'
+			})
 			const reg = await navigator.serviceWorker.ready;
 			subscription = await reg.pushManager.getSubscription();
+			const res = await fetch('/notify');
 			if (!subscription) {
-				const res = await fetch('/notify');
 				const key = await res.json();
 				subscription = await reg.pushManager.subscribe({
 					userVisibleOnly: true,
@@ -86,38 +90,45 @@
 
 		querySnapshot.forEach((document) => {
 			if (!alertTable.some((row) => row.alertId === document.id)) {
-				const {
-					userId,
-					subscriptionEndpoint,
-					alertValue,
-					alertMessage,
-					createdAt,
-				} = document.data();
+				const { userId, alertValue, alertMessage, createdAt } =
+					document.data();
 				const completeTimeStamp = calculateTimeStamp(alertValue);
-				const completeTimeString = parseCompleteString(completeTimeStamp);
+				if (!isNaN(completeTimeStamp)) {
+					const completeTimeString = parseCompleteString(completeTimeStamp);
 
-				const tableEntry = {
-					alertId: document.id,
-					userId,
-					subscriptionEndpoint,
-					alertValue,
-					alertMessage,
-					completeTimeStamp,
-					completeTimeString,
-					isComplete: completeTimeStamp <= new Date().valueOf(),
-					createdAt,
-				};
+					const tableEntry = {
+						alertId: document.id,
+						userId,
+						alertValue,
+						alertMessage,
+						completeTimeStamp,
+						completeTimeString,
+						isComplete: completeTimeStamp <= new Date().valueOf(),
+						createdAt,
+					};
 
-				alertTable = [...alertTable, tableEntry];
+					alertTable = [...alertTable, tableEntry];
 
-				//update completeTimeStamp and completeTimeString in database
-				updateDoc(doc(db, 'alerts', document.id), {
-					completeTimeStamp,
-					completeTimeString,
-					isComplete: tableEntry.isComplete,
-				});
+					//update completeTimeStamp and completeTimeString in database
+					updateDoc(doc(db, 'alerts', document.id), {
+						completeTimeStamp,
+						completeTimeString,
+						isComplete: tableEntry.isComplete,
+					});
+				}
 			}
 		});
+
+		midnight = new Date(
+			new Date().getFullYear(),
+			new Date().getMonth(),
+			new Date().getDate() + 1,
+			0,
+			0,
+			0,
+		);
+
+		console.log('alertTable', alertTable);
 	}
 
 	function calculateTimeStamp(alertValue) {
@@ -215,7 +226,6 @@
 			const tableEntry = {
 				alertId: alertTable[index].alertId || uuidv4(),
 				userId: auth.currentUser.uid,
-				subscriptionEndpoint: subscription.endpoint,
 				alertValue: parseInt(event.target.value),
 				alertMessage: `${resourceName} at ${event.target.value}!`,
 				completeTimeStamp,
@@ -233,7 +243,6 @@
 			// Add alert to database if it's a new entry, else update existing entry
 			setDoc(doc(db, 'alerts', tableEntry.alertId), {
 				userId: tableEntry.userId,
-				subscriptionEndpoint: tableEntry.subscriptionEndpoint,
 				alertValue: tableEntry.alertValue,
 				alertMessage: tableEntry.alertMessage,
 				completeTimeStamp,
@@ -280,6 +289,17 @@
 		alertTable = alertTable;
 	}
 
+	//store subscription if sub or auth change
+	$: if (subscription && auth.currentUser) {
+		console.log('subscription', subscription);
+
+		console.log(auth.currentUser.uid)
+		// update subscription in database
+		setDoc(doc(db, 'users', auth.currentUser.uid), {
+			subscription: subscription.toJSON(),
+		})
+	}
+
 	$: if (showAlarms && Notification.permission !== 'granted') {
 		showNotifsOffAlert = true;
 	} else {
@@ -288,6 +308,7 @@
 
 	// if currentTime is past midnight of render time, update alertTable
 	$: if (currentTime > midnight.valueOf() && alertTable && alertTable.length > 0) {
+		console.log('midnight refreshing table');
 		refreshAlertTable();
 	}
 

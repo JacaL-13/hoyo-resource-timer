@@ -23,10 +23,10 @@ let nextNotifTime = 86400000;
 
 let alerts = [];
 
-schedule.gracefulShutdown()
-const job = schedule.scheduleJob('*/5 * * * * *', sendNotifs);
+schedule.gracefulShutdown();
+const job = schedule.scheduleJob('*/10 * * * * *', sendNotifs);
 
-setTimer();
+console.log('setting timer');
 
 async function getAlerts() {
 	const alertsSnap = await adminDB.collection('alerts').get();
@@ -35,47 +35,49 @@ async function getAlerts() {
 	});
 }
 
-async function setTimer() {
-	console.log('setting timer');
-	//Run node-schdule job every 30 seconds
-}
-
 async function sendNotifs() {
 	await getAlerts();
 
 	const alertsToSend = alerts.filter((alert) => {
-		return alert.completeTimeStamp <= Date.now() && !alert.isComplete;
+		return alert.completeTimeStamp <= (Date.now().valueOf() + 5000) && !alert.isComplete;
 	});
 
 	console.log('alerts to send', alertsToSend);
 
-	//update isComplete to true in database
-	const batch = adminDB.batch();
-	alertsToSend.forEach((alert) => {
-		//send notification
-		const payload = JSON.stringify({
-			title: 'Hoyo Resource Timer',
-			body: `${alert.name} is ready!`,
-			icon: '/favicon.ico',
-			badge: '/favicon.ico',
-			data: {
-				url: 'https://hoyoresourcetimer.com',
-			},
-		});
-		const pushSubscription = {
-			endpoint: alert.subcriptionEndpoint,
-		};
+	if (alertsToSend.length > 0) {
+		const userSnap = await adminDB
+			.collection('users')
+			.get();
+		const users = userSnap.docs.map((doc) => {
+			return { userId: doc.id, ...doc.data() };
+		})
+		
+		const batch = adminDB.batch();
+		alertsToSend.forEach((alert) => {
+			const subscription = users.find((user) => user.userId === alert.userId).subscription
+			
+			//send notification
+			const payload = JSON.stringify({
+				title: 'Hoyo Resource Timer',
+				body: alert.alertMessage,
+				icon: '/favicon.png',
+				badge: '/favicon.png',
+				data: {
+					url: 'https://hoyoresourcetimer.com',
+				},
+			});
 
-		webPush.sendNotification(pushSubscription, payload).catch((error) => {
-			console.error(error.stack);
+			webPush.sendNotification(subscription, payload).catch((error) => {
+				console.error(error.stack);
+			});
+			const docRef = adminDB.collection('alerts').doc(alert.alertId);
+			batch.update(docRef, {
+				isComplete: true,
+			});
 		});
-		const docRef = adminDB.collection('alerts').doc(alert.alertId);
-		// batch.update(docRef, {
-		// 	isComplete: true,
-		// });
-	});
-	await batch.commit();
-	console.log('commit batch')
+		await batch.commit();
+		console.log('commit batch');
+	}
 }
 
 export function GET() {

@@ -6,7 +6,7 @@ const CACHE = `cache-${version}`;
 
 const ASSETS = [
 	...build, // the app itself
-	...files  // everything in `static`
+	...files, // everything in `static`
 ];
 
 self.addEventListener('install', (event) => {
@@ -62,6 +62,17 @@ self.addEventListener('fetch', (event) => {
 });
 
 self.addEventListener('push', (event) => {
-	console.log('push event', event);
-	// if (event.data.text() === 'new-issue')
-})
+	if (!(self.Notification && self.Notification.permission === 'granted')) {
+		return;
+	}
+
+	const { title, body, icon, badge, data } = JSON.parse(event.data.text());
+	console.log('push data', title, body, icon, badge, data);
+
+	self.registration.showNotification(title, {
+		body,
+		icon,
+		badge,
+		data,
+	});
+});
