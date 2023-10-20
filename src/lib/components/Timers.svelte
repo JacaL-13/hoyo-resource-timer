@@ -4,6 +4,8 @@
 
 	import { onMount } from 'svelte';
 
+	import { fade } from 'svelte/transition';
+
 	export let maxResource;
 	export let regenTime;
 	export let tabId;
@@ -32,7 +34,9 @@
 
 	let screenSizeY;
 
-	let showAlarms = false;
+	let showAlerts = false;
+
+	let showNotifsOffAlert = false;
 
 	let currentTime = new Date().valueOf();
 
@@ -141,21 +145,21 @@
 	}
 
 	//if notify changes, set document to blink and play sound
-	$: if (notify) {
-		const notifyText = `${resourceName} at ${curResource}!`;
+	// $: if (notify) {
+	// 	const notifyText = `${resourceName} at ${curResource}!`;
 
-		clearInterval(notifyIntervalId);
+	// 	clearInterval(notifyIntervalId);
 
-		notifyIntervalId = setInterval(() => {
-			if (document.title === 'Hoyo Resource Timer') {
-				document.title = notifyText;
-			} else {
-				document.title = 'Hoyo Resource Timer';
-			}
-		}, 1500);
-	} else if (notifyIntervalId) {
-		clearInterval(notifyIntervalId);
-	}
+	// 	notifyIntervalId = setInterval(() => {
+	// 		if (document.title === 'Hoyo Resource Timer') {
+	// 			document.title = notifyText;
+	// 		} else {
+	// 			document.title = 'Hoyo Resource Timer';
+	// 		}
+	// 	}, 1500);
+	// } else if (notifyIntervalId) {
+	// 	clearInterval(notifyIntervalId);
+	// }
 
 	// Enforce numeric input and maximum resource value
 	function enforceNumeric() {
@@ -193,8 +197,18 @@
 		setTimer();
 	}
 
-	function setShowAlarms(bool) {
-		showAlarms = bool;
+	function setShowAlerts(bool) {
+		showAlerts = bool;
+	}
+
+	function alertNotifsOff() {
+		if (Notification.permission !== 'granted') {
+			showNotifsOffAlert = true;
+
+			setTimeout(() => {
+				showNotifsOffAlert = false;
+			}, 5000);
+		}
 	}
 
 	// =========================================================
@@ -302,8 +316,8 @@
 	// Alert modal
 	// ========================================================= -->
 	<AlertModal
-		{showAlarms}
-		{setShowAlarms}
+		{showAlerts}
+		{setShowAlerts}
 		{setResource}
 		{curResource}
 		{regenTime}
@@ -311,16 +325,25 @@
 		{resourceName}
 		{currentTime}
 		{timeElapsedInSeconds}
+		{alertNotifsOff}
 	/>
+
+	{#if showNotifsOffAlert}
+		<div class="toast toast-top toast-start z-50" transition:fade>
+			<div class="alert alert-info">
+				Enable notifications to receive custom alerts.
+			</div>
+		</div>
+	{/if}
 
 	<!-- // =========================================================
 		// Show alert modal button
 		// ========================================================= -->
 	<button
 		class="swap swap-flip text-2xl absolute bottom-2 right-5 z-10"
-		class:swap-active={showAlarms}
+		class:swap-active={showAlerts}
 		on:click={() => {
-			showAlarms = !showAlarms;
+			showAlerts = !showAlerts;
 		}}
 	>
 		<div class="swap-on" />

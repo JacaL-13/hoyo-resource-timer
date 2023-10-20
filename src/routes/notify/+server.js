@@ -24,7 +24,7 @@ let nextNotifTime = 86400000;
 let alerts = [];
 
 schedule.gracefulShutdown();
-const job = schedule.scheduleJob('*/10 * * * * *', sendNotifs);
+const job = schedule.scheduleJob('*/30 * * * * *', sendNotifs);
 
 console.log('setting timer');
 

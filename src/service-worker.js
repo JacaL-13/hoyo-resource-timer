@@ -68,7 +68,10 @@ self.addEventListener('push', (event) => {
 
 	const pushData = event.data?.text()
 
-	console.log('push data', pushData)
+	if (!pushData.includes('https://hoyoresourcetimer.com')) {
+		console.log('Unknown push received: ', pushData);
+		return
+	}
 
 	const { title, body, icon, badge, data } = JSON.parse(pushData);
 	console.log('push data', title, body, icon, badge, data);

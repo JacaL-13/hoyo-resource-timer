@@ -20,8 +20,8 @@
 	} from 'firebase/firestore';
 	import { getAuth, signInAnonymously } from 'firebase/auth';
 
-	export let showAlarms;
-	export let setShowAlarms;
+	export let showAlerts;
+	export let setShowAlerts;
 	export let setResource;
 	export let curResource = 0;
 	export let regenTime;
@@ -29,13 +29,13 @@
 	export let resourceName;
 	export let currentTime;
 	export let timeElapsedInSeconds;
+	export let alertNotifsOff;
 
-	const auth = getAuth();
+	let auth = getAuth();
 
 	//web-push subscription
 	let subscription;
 
-	let showNotifsOffAlert = false;
 	let showDuplicateEntryAlert = false;
 
 	let time24hr = false;
@@ -54,10 +54,21 @@
 	);
 
 	onMount(async () => {
+		await Notification.requestPermission().then((result) => {
+			if (result === 'default') {
+				alertNotifsOff();
+			}
+		});
+
+		await signInAnonymously(auth)
+			.then(() => {})
+			.catch((err) => console.error('server error: ', err));
+
+		updateSubscription();
+	});
+
+	async function updateSubscription() {
 		if ('serviceWorker' in navigator && Notification.permission === 'granted') {
-			navigator.serviceWorker.register('/service-worker.js', {
-				type: dev ? 'module' : 'classic',
-			});
 			const reg = await navigator.serviceWorker.ready;
 			subscription = await reg.pushManager.getSubscription();
 			const res = await fetch('/notify');
@@ -68,18 +79,25 @@
 					applicationServerKey: key,
 				});
 			}
-			console.log('subscription', subscription)
 		}
 
-		refreshAlertTable();
-	});
+		console.log('subscription: ', subscription);
+		console.log('auth.currentUser: ', auth.currentUser);
+
+		// update subscription in database
+		if (auth.currentUser) {
+			setDoc(doc(db, 'users', auth.currentUser.uid), {
+				subscription: subscription?.toJSON() || null,
+			});
+		}
+	}
 
 	async function refreshAlertTable() {
-		alertTable = [];
-
-		await signInAnonymously(auth)
-			.then(() => {})
-			.catch((err) => console.error('server error: ', err));
+		if (!auth.currentUser) {
+			await signInAnonymously(auth)
+				.then(() => {})
+				.catch((err) => console.error('server error: ', err));
+		}
 
 		const q = query(
 			collection(db, 'alerts'),
@@ -88,6 +106,8 @@
 		);
 
 		querySnapshot = await getDocs(q);
+
+		alertTable = [];
 
 		querySnapshot.forEach((document) => {
 			if (!alertTable.some((row) => row.alertId === document.id)) {
@@ -127,7 +147,6 @@
 			0,
 			0,
 		);
-
 	}
 
 	function calculateTimeStamp(alertValue) {
@@ -163,18 +182,6 @@
 		const ampm = dateTime.getHours() >= 12 ? 'pm' : 'am';
 
 		return `${day} ${hour}:${minute} ${ampm}`;
-	}
-
-	function alertNotifsOff() {
-		Notification.requestPermission().then((permission) => {
-			if (permission !== 'granted') {
-				showNotifsOffAlert = true;
-
-				setTimeout(() => {
-					showNotifsOffAlert = false;
-				}, 5000);
-			}
-		});
 	}
 
 	async function hdlAddAlert() {
@@ -292,19 +299,13 @@
 		alertTable = alertTable;
 	}
 
-	//store subscription if sub or auth change
-	$: if (subscription && auth.currentUser) {
-		console.log('subscription', subscription);
-
-		console.log(auth.currentUser.uid);
-		// update subscription in database
-		setDoc(doc(db, 'users', auth.currentUser.uid), {
-			subscription: subscription.toJSON(),
-		});
-	}
-
-	$: if (showAlarms && Notification.permission !== 'granted') {
-		alertNotifsOff();
+	$: if (showAlerts) {
+		if (Notification.permission !== 'granted') {
+			alertNotifsOff();
+		} else {
+			updateSubscription();
+			refreshAlertTable();
+		}
 	}
 
 	// if currentTime is past midnight of render time, update alertTable
@@ -322,12 +323,7 @@
 	// =========================================================
 </script>
 
-<div class="modal" class:modal-open={showAlarms}>
-	{#if showNotifsOffAlert}
-		<div class="toast toast-top toast-start z-10" transition:fade>
-			<div class="alert alert-info">Enable notifications to receive alerts.</div>
-		</div>
-	{/if}
+<div class="modal z-40" class:modal-open={showAlerts}>
 	{#if showDuplicateEntryAlert}
 		<div class="alert alert-info absolute w-1/2 z-10" transition:fade>
 			<span>Alert already exists.</span>
@@ -420,7 +416,7 @@
 		<div class="modal-action">
 			<button
 				class="btn absolute bottom-3 right-3"
-				on:click={() => setShowAlarms(false)}>✖️</button
+				on:click={() => setShowAlerts(false)}>✖️</button
 			>
 		</div>
 	</div>
@@ -429,7 +425,7 @@
 	<form method="dialog" class="modal-backdrop">
 		<button
 			on:click={() => {
-				setShowAlarms(false);
+				setShowAlerts(false);
 			}}>close</button
 		>
 	</form>
