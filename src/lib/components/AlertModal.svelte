@@ -68,6 +68,7 @@
 					applicationServerKey: key,
 				});
 			}
+			console.log('subscription', subscription)
 		}
 
 		refreshAlertTable();
@@ -127,7 +128,6 @@
 			0,
 		);
 
-		console.log('alertTable', alertTable);
 	}
 
 	function calculateTimeStamp(alertValue) {

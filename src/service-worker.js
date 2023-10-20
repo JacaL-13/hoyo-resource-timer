@@ -66,7 +66,11 @@ self.addEventListener('push', (event) => {
 		return;
 	}
 
-	const { title, body, icon, badge, data } = JSON.parse(event.data.text());
+	const pushData = event.data?.text()
+
+	console.log('push data', pushData)
+
+	const { title, body, icon, badge, data } = JSON.parse(pushData);
 	console.log('push data', title, body, icon, badge, data);
 
 	self.registration.showNotification(title, {
