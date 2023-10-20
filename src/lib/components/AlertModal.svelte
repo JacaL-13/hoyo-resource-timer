@@ -3,7 +3,7 @@
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
 	import { v4 as uuidv4 } from 'uuid';
-	import {dev} from '$app/environment';
+	import { dev } from '$app/environment';
 
 	import { db } from '$lib/firebase';
 	import {
@@ -56,8 +56,8 @@
 	onMount(async () => {
 		if ('serviceWorker' in navigator && Notification.permission === 'granted') {
 			navigator.serviceWorker.register('/service-worker.js', {
-				type: dev ? 'module' : 'classic'
-			})
+				type: dev ? 'module' : 'classic',
+			});
 			const reg = await navigator.serviceWorker.ready;
 			subscription = await reg.pushManager.getSubscription();
 			const res = await fetch('/notify');
@@ -90,8 +90,7 @@
 
 		querySnapshot.forEach((document) => {
 			if (!alertTable.some((row) => row.alertId === document.id)) {
-				const { userId, alertValue, alertMessage, createdAt } =
-					document.data();
+				const { userId, alertValue, alertMessage, createdAt } = document.data();
 				const completeTimeStamp = calculateTimeStamp(alertValue);
 				if (!isNaN(completeTimeStamp)) {
 					const completeTimeString = parseCompleteString(completeTimeStamp);
@@ -167,11 +166,15 @@
 	}
 
 	function alertNotifsOff() {
-		showNotifsOffAlert = true;
+		Notification.requestPermission().then((permission) => {
+			if (permission !== 'granted') {
+				showNotifsOffAlert = true;
 
-		setTimeout(() => {
-			showNotifsOffAlert = false;
-		}, 5000);
+				setTimeout(() => {
+					showNotifsOffAlert = false;
+				}, 5000);
+			}
+		});
 	}
 
 	async function hdlAddAlert() {
@@ -293,17 +296,15 @@
 	$: if (subscription && auth.currentUser) {
 		console.log('subscription', subscription);
 
-		console.log(auth.currentUser.uid)
+		console.log(auth.currentUser.uid);
 		// update subscription in database
 		setDoc(doc(db, 'users', auth.currentUser.uid), {
 			subscription: subscription.toJSON(),
-		})
+		});
 	}
 
 	$: if (showAlarms && Notification.permission !== 'granted') {
-		showNotifsOffAlert = true;
-	} else {
-		showNotifsOffAlert = false;
+		alertNotifsOff();
 	}
 
 	// if currentTime is past midnight of render time, update alertTable
