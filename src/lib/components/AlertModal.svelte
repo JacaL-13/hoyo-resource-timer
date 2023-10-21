@@ -22,7 +22,6 @@
 
 	export let showAlerts;
 	export let setShowAlerts;
-	export let setResource;
 	export let curResource = 0;
 	export let regenTime;
 	export let maxResource;
@@ -30,6 +29,11 @@
 	export let currentTime;
 	export let timeElapsedInSeconds;
 	export let alertNotifsOff;
+
+	export async function rescheduleAlerts() {
+		await refreshAlertTable()
+		// TODO: send alertTable to server
+	}
 
 	let auth = getAuth();
 
@@ -60,11 +64,15 @@
 			}
 		});
 
-		await signInAnonymously(auth)
-			.then(() => {})
-			.catch((err) => console.error('server error: ', err));
+		if (!auth.currentUser) {
+			await signInAnonymously(auth)
+				.then(() => {})
+				.catch((err) => console.error('server error: ', err));
+		}
 
 		updateSubscription();
+
+		refreshAlertTable();
 	});
 
 	async function updateSubscription() {
@@ -80,9 +88,6 @@
 				});
 			}
 		}
-
-		console.log('subscription: ', subscription);
-		console.log('auth.currentUser: ', auth.currentUser);
 
 		// update subscription in database
 		if (auth.currentUser) {
@@ -304,17 +309,12 @@
 			alertNotifsOff();
 		} else {
 			updateSubscription();
-			refreshAlertTable();
 		}
 	}
 
 	// if currentTime is past midnight of render time, update alertTable
 	$: if (currentTime > midnight.valueOf() && alertTable && alertTable.length > 0) {
 		console.log('midnight refreshing table');
-		refreshAlertTable();
-	}
-
-	$: if (setResource) {
 		refreshAlertTable();
 	}
 
@@ -373,6 +373,7 @@
 										event.target.blur();
 									}
 								}}
+								autoComplete="off"
 							/></td
 						>
 						<td

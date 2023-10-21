@@ -40,6 +40,8 @@
 
 	let currentTime = new Date().valueOf();
 
+	let rescheduleAlerts
+
 	// On mount, get the current resource, start time, and weekly boss set time from local storage
 	onMount(() => {
 		startTime = +localStorage.getItem('startTime' + tabId) || null;
@@ -68,6 +70,7 @@
 
 			setTimer();
 		}
+		
 	});
 
 	// Parses time in seconds into a timer string
@@ -190,6 +193,7 @@
 	function hdlChange() {
 		startTime = new Date().valueOf();
 		setResource = curResource;
+		rescheduleAlerts()
 
 		localStorage.setItem('setResource' + tabId, setResource);
 		localStorage.setItem('startTime' + tabId, startTime);
@@ -293,6 +297,7 @@
 						event.target.blur();
 					}
 				}}
+				autoComplete="off"
 			/>
 		</div>
 		<p class="main-timer">Time to full {maxTimer}</p>
@@ -318,7 +323,6 @@
 	<AlertModal
 		{showAlerts}
 		{setShowAlerts}
-		{setResource}
 		{curResource}
 		{regenTime}
 		{maxResource}
@@ -326,6 +330,7 @@
 		{currentTime}
 		{timeElapsedInSeconds}
 		{alertNotifsOff}
+		bind:rescheduleAlerts={rescheduleAlerts}
 	/>
 
 	{#if showNotifsOffAlert}
