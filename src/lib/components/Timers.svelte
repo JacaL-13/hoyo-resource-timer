@@ -4,6 +4,8 @@
 
 	import { onMount } from 'svelte';
 
+	import { fade } from 'svelte/transition';
+
 	export let maxResource;
 	export let regenTime;
 	export let tabId;
@@ -24,7 +26,6 @@
 	let pause = false; // Pause resource update by timer while user editing so input isn't overwritten
 
 	let notify = false;
-	let notifyIntervalId;
 
 	//Prevent double presses on week boss counter buttons
 	let debounceTimer;
@@ -32,9 +33,13 @@
 
 	let screenSizeY;
 
-	let showAlarms = false;
+	let showAlerts = false;
+
+	let showNotifsOffAlert = false;
 
 	let currentTime = new Date().valueOf();
+
+	let rescheduleAlerts
 
 	// On mount, get the current resource, start time, and weekly boss set time from local storage
 	onMount(() => {
@@ -64,6 +69,7 @@
 
 			setTimer();
 		}
+		
 	});
 
 	// Parses time in seconds into a timer string
@@ -140,23 +146,6 @@
 		}, 1000);
 	}
 
-	//if notify changes, set document to blink and play sound
-	$: if (notify) {
-		const notifyText = `${resourceName} at ${curResource}!`;
-
-		clearInterval(notifyIntervalId);
-
-		notifyIntervalId = setInterval(() => {
-			if (document.title === 'Hoyo Resource Timer') {
-				document.title = notifyText;
-			} else {
-				document.title = 'Hoyo Resource Timer';
-			}
-		}, 1500);
-	} else if (notifyIntervalId) {
-		clearInterval(notifyIntervalId);
-	}
-
 	// Enforce numeric input and maximum resource value
 	function enforceNumeric() {
 		curResource = curResource.replace(/[^0-9]/g, '');
@@ -186,6 +175,7 @@
 	function hdlChange() {
 		startTime = new Date().valueOf();
 		setResource = curResource;
+		rescheduleAlerts()
 
 		localStorage.setItem('setResource' + tabId, setResource);
 		localStorage.setItem('startTime' + tabId, startTime);
@@ -193,8 +183,18 @@
 		setTimer();
 	}
 
-	function setShowAlarms(bool) {
-		showAlarms = bool;
+	function setShowAlerts(bool) {
+		showAlerts = bool;
+	}
+
+	function alertNotifsOff() {
+		if (Notification.permission !== 'granted') {
+			showNotifsOffAlert = true;
+
+			setTimeout(() => {
+				showNotifsOffAlert = false;
+			}, 5000);
+		}
 	}
 
 	// =========================================================
@@ -279,6 +279,7 @@
 						event.target.blur();
 					}
 				}}
+				autoComplete="off"
 			/>
 		</div>
 		<p class="main-timer">Time to full {maxTimer}</p>
@@ -302,25 +303,34 @@
 	// Alert modal
 	// ========================================================= -->
 	<AlertModal
-		{showAlarms}
-		{setShowAlarms}
-		{setResource}
+		{showAlerts}
+		{setShowAlerts}
 		{curResource}
 		{regenTime}
 		{maxResource}
 		{resourceName}
 		{currentTime}
 		{timeElapsedInSeconds}
+		{alertNotifsOff}
+		bind:rescheduleAlerts={rescheduleAlerts}
 	/>
+
+	{#if showNotifsOffAlert}
+		<div class="toast toast-top toast-start z-50" transition:fade>
+			<div class="alert alert-info">
+				Enable notifications to receive custom alerts.
+			</div>
+		</div>
+	{/if}
 
 	<!-- // =========================================================
 		// Show alert modal button
 		// ========================================================= -->
 	<button
 		class="swap swap-flip text-2xl absolute bottom-2 right-5 z-10"
-		class:swap-active={showAlarms}
+		class:swap-active={showAlerts}
 		on:click={() => {
-			showAlarms = !showAlarms;
+			showAlerts = !showAlerts;
 		}}
 	>
 		<div class="swap-on" />
@@ -371,10 +381,6 @@
 
 		.responsive-button {
 			font-size: 1.7vh;
-		}
-
-		.counter-btn {
-			width: 3rem;
 		}
 	}
 </style>

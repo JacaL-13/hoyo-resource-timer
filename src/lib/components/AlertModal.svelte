@@ -1,9 +1,7 @@
 <script>
 	import { fade } from 'svelte/transition';
 	import { onMount } from 'svelte';
-	import { browser } from '$app/environment';
 	import { v4 as uuidv4 } from 'uuid';
-	import {dev} from '$app/environment';
 
 	import { db } from '$lib/firebase';
 	import {
@@ -20,22 +18,26 @@
 	} from 'firebase/firestore';
 	import { getAuth, signInAnonymously } from 'firebase/auth';
 
-	export let showAlarms;
-	export let setShowAlarms;
-	export let setResource;
+	export let showAlerts;
+	export let setShowAlerts;
 	export let curResource = 0;
 	export let regenTime;
 	export let maxResource;
 	export let resourceName;
 	export let currentTime;
 	export let timeElapsedInSeconds;
+	export let alertNotifsOff;
 
-	const auth = getAuth();
+	export async function rescheduleAlerts() {
+		await refreshAlertTable();
+		// TODO: send alertTable to server
+	}
+
+	let auth = getAuth();
 
 	//web-push subscription
 	let subscription;
 
-	let showNotifsOffAlert = false;
 	let showDuplicateEntryAlert = false;
 
 	let time24hr = false;
@@ -54,10 +56,25 @@
 	);
 
 	onMount(async () => {
+		await Notification.requestPermission().then((result) => {
+			if (result === 'default') {
+				alertNotifsOff();
+			}
+		});
+
+		if (!auth.currentUser) {
+			await signInAnonymously(auth)
+				.then(() => {})
+				.catch((err) => console.error('server error: ', err));
+		}
+
+		updateSubscription();
+
+		refreshAlertTable();
+	});
+
+	async function updateSubscription() {
 		if ('serviceWorker' in navigator && Notification.permission === 'granted') {
-			navigator.serviceWorker.register('/service-worker.js', {
-				type: dev ? 'module' : 'classic'
-			})
 			const reg = await navigator.serviceWorker.ready;
 			subscription = await reg.pushManager.getSubscription();
 			const res = await fetch('/notify');
@@ -70,15 +87,24 @@
 			}
 		}
 
-		refreshAlertTable();
-	});
+		// update subscription in database
+		if (!auth.currentUser) {
+			await signInAnonymously(auth)
+				.then(() => {})
+				.catch((err) => console.error('server error: ', err));
+		}
+
+		setDoc(doc(db, 'users', auth.currentUser.uid), {
+			subscription: subscription?.toJSON() || null,
+		});
+	}
 
 	async function refreshAlertTable() {
-		alertTable = [];
-
-		await signInAnonymously(auth)
-			.then(() => {})
-			.catch((err) => console.error('server error: ', err));
+		if (!auth.currentUser) {
+			await signInAnonymously(auth)
+				.then(() => {})
+				.catch((err) => console.error('server error: ', err));
+		}
 
 		const q = query(
 			collection(db, 'alerts'),
@@ -88,10 +114,11 @@
 
 		querySnapshot = await getDocs(q);
 
+		alertTable = [];
+
 		querySnapshot.forEach((document) => {
 			if (!alertTable.some((row) => row.alertId === document.id)) {
-				const { userId, alertValue, alertMessage, createdAt } =
-					document.data();
+				const { userId, alertValue, alertMessage, createdAt } = document.data();
 				const completeTimeStamp = calculateTimeStamp(alertValue);
 				if (!isNaN(completeTimeStamp)) {
 					const completeTimeString = parseCompleteString(completeTimeStamp);
@@ -127,8 +154,6 @@
 			0,
 			0,
 		);
-
-		console.log('alertTable', alertTable);
 	}
 
 	function calculateTimeStamp(alertValue) {
@@ -166,14 +191,9 @@
 		return `${day} ${hour}:${minute} ${ampm}`;
 	}
 
-	function alertNotifsOff() {
-		showNotifsOffAlert = true;
-
-		setTimeout(() => {
-			showNotifsOffAlert = false;
-		}, 5000);
-	}
-
+	// =========================================================
+	// Add blank alert to alertTable
+	// =========================================================
 	async function hdlAddAlert() {
 		if (Notification.permission !== 'granted') {
 			return alertNotifsOff();
@@ -214,13 +234,6 @@
 			const completeTimeString = parseCompleteString(completeTimeStamp);
 
 			const isComplete = completeTimeStamp <= new Date().valueOf();
-			const isSoonest = alertTable.every((row) => {
-				return (
-					row.alertValue === null ||
-					row.completeTimeStamp < new Date().valueOf() ||
-					row.alertValue > event.target.value
-				);
-			});
 
 			//Add alert to alertTable
 			const tableEntry = {
@@ -289,21 +302,12 @@
 		alertTable = alertTable;
 	}
 
-	//store subscription if sub or auth change
-	$: if (subscription && auth.currentUser) {
-		console.log('subscription', subscription);
-
-		console.log(auth.currentUser.uid)
-		// update subscription in database
-		setDoc(doc(db, 'users', auth.currentUser.uid), {
-			subscription: subscription.toJSON(),
-		})
-	}
-
-	$: if (showAlarms && Notification.permission !== 'granted') {
-		showNotifsOffAlert = true;
-	} else {
-		showNotifsOffAlert = false;
+	$: if (showAlerts) {
+		if (Notification.permission !== 'granted') {
+			alertNotifsOff();
+		} else {
+			updateSubscription();
+		}
 	}
 
 	// if currentTime is past midnight of render time, update alertTable
@@ -312,21 +316,12 @@
 		refreshAlertTable();
 	}
 
-	$: if (setResource) {
-		refreshAlertTable();
-	}
-
 	// =========================================================
 	// end of script
 	// =========================================================
 </script>
 
-<div class="modal" class:modal-open={showAlarms}>
-	{#if showNotifsOffAlert}
-		<div class="toast toast-top toast-start z-10" transition:fade>
-			<div class="alert alert-info">Enable notifications to receive alerts.</div>
-		</div>
-	{/if}
+<div class="modal z-40" class:modal-open={showAlerts}>
 	{#if showDuplicateEntryAlert}
 		<div class="alert alert-info absolute w-1/2 z-10" transition:fade>
 			<span>Alert already exists.</span>
@@ -376,6 +371,7 @@
 										event.target.blur();
 									}
 								}}
+								autoComplete="off"
 							/></td
 						>
 						<td
@@ -419,7 +415,7 @@
 		<div class="modal-action">
 			<button
 				class="btn absolute bottom-3 right-3"
-				on:click={() => setShowAlarms(false)}>✖️</button
+				on:click={() => setShowAlerts(false)}>✖️</button
 			>
 		</div>
 	</div>
@@ -428,7 +424,7 @@
 	<form method="dialog" class="modal-backdrop">
 		<button
 			on:click={() => {
-				setShowAlarms(false);
+				setShowAlerts(false);
 			}}>close</button
 		>
 	</form>

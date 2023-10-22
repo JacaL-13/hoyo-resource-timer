@@ -1,8 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import {getFirestore, collection, doc, setDoc, getDoc} from 'firebase/firestore';
-
-import { onMount } from 'svelte';
-import { writable } from 'svelte/store';
+import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
 	apiKey: 'AIzaSyBY2DpzKqf9vPQH5EUkt3FSPWGR_p57foU',
@@ -14,9 +11,7 @@ const firebaseConfig = {
 	measurementId: 'G-7C7CBDHQSZ',
 };
 
-async function getSubscription() {
-	
-}
+async function getSubscription() {}
 
 export const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
