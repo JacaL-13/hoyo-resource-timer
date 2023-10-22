@@ -6,9 +6,7 @@ import webPush from 'web-push';
 import { PUBLIC_VAPID_KEY } from '$env/static/public';
 import { PRIVATE_VAPID_KEY } from '$env/static/private';
 
-import { adminDB, adminAuth } from '$lib/server/admin';
-
-import { waitUntil } from 'async-wait-until';
+import { adminDB } from '$lib/server/admin';
 
 webPush.setVapidDetails(
 	'https://hoyoresourcetimer.com',
@@ -16,45 +14,81 @@ webPush.setVapidDetails(
 	PRIVATE_VAPID_KEY,
 );
 
-let timeoutId;
-
-let nextNotifTime = 86400000;
 
 let dbAlerts = [];
 
 schedule.gracefulShutdown();
 
+process.on('SIGINT', function () {
+	schedule.gracefulShutdown().then(() => process.exit(0));
+});
+
 const query = adminDB.collection('alerts').where('isComplete', '==', false);
 
 const unsubscribe = query.onSnapshot(async (querySnapshot) => {
-	schedule.gracefulShutdown()
-	
 	const userSnap = await adminDB.collection('users').get();
 
 	const users = userSnap.docs.map((doc) => {
 		return { userId: doc.id, ...doc.data() };
 	});
 
-	dbAlerts = querySnapshot.docs.map((doc) => {
-		const alert = doc.data();
-
+	const alertQuery = querySnapshot.docs.map((doc) => {
+		const alert = { alertId: doc.id, ...doc.data() };
 		const user = users.find((user) => user.userId === doc.data().userId);
 
-		const scheduleDate =
-			alert.completeTimeStamp > new Date().valueOf()
-				? new Date(alert.completeTimeStamp)
-				: new Date(new Date().valueOf() + 5000);
+		if (!user) {
+			return;
+		}
 
-		const job = schedule.scheduleJob(scheduleDate, () => {
-			sendNotification(doc.id, alert, user.subscription);
-		});
-		return { alertId: doc.id, ...alert };
+		const existingAlert = dbAlerts.find(
+			(dbAlert) => dbAlert?.alertId === alert.alertId,
+		);
+
+		//if alert already in dbAlerts reschedule job else add and schedule job
+
+		if (existingAlert) {
+			if (existingAlert.completeTimeStamp === alert.completeTimeStamp) {
+				return existingAlert;
+			}
+
+			existingAlert.job.cancel();
+
+		}
+
+		const job = scheduleAlert(alert, user.subscription);
+		return { ...alert, job };
+	}).filter((alert) => {
+		//remove alerts that have no user
+		return alert !== undefined;
 	});
+
+	//cancel all jobs that are not in alertQuery
+	dbAlerts.forEach((dbAlert) => {
+		const existingAlert = alertQuery.find(
+			(alert) => alert?.alertId === dbAlert.alertId,
+		);
+
+		if (!existingAlert) {
+			dbAlert.job.cancel();
+		}
+	});
+
+	dbAlerts = alertQuery;
 });
 
+function scheduleAlert(alert, subscription) {
+	const scheduleDate =
+		alert.completeTimeStamp > new Date().valueOf() + 1000
+			? new Date(alert.completeTimeStamp)
+			: new Date(new Date().valueOf() + 1000);
+
+	const job = schedule.scheduleJob(scheduleDate, () => {
+		sendNotification(alert.alertId, alert, subscription);
+	});
+	return job;
+}
+
 async function sendNotification(alertId, alert, subscription) {
-	console.log('sendNotification', alertId, subscription)
-	
 	const payload = JSON.stringify({
 		title: 'Hoyo Resource Timer',
 		body: alert.alertMessage,
@@ -71,8 +105,7 @@ async function sendNotification(alertId, alert, subscription) {
 
 	//update isComplete in db
 	const docRef = adminDB.collection('alerts').doc(alertId);
-	const dbRes = await docRef.update({ isComplete: true });
-	console.log('dbRes', dbRes);
+	await docRef.update({ isComplete: true });
 }
 
 export function GET() {

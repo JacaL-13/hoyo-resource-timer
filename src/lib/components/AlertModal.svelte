@@ -31,7 +31,7 @@
 	export let alertNotifsOff;
 
 	export async function rescheduleAlerts() {
-		await refreshAlertTable()
+		await refreshAlertTable();
 		// TODO: send alertTable to server
 	}
 
@@ -90,11 +90,15 @@
 		}
 
 		// update subscription in database
-		if (auth.currentUser) {
-			setDoc(doc(db, 'users', auth.currentUser.uid), {
-				subscription: subscription?.toJSON() || null,
-			});
+		if (!auth.currentUser) {
+			await signInAnonymously(auth)
+				.then(() => {})
+				.catch((err) => console.error('server error: ', err));
 		}
+
+		setDoc(doc(db, 'users', auth.currentUser.uid), {
+			subscription: subscription?.toJSON() || null,
+		});
 	}
 
 	async function refreshAlertTable() {
@@ -189,6 +193,9 @@
 		return `${day} ${hour}:${minute} ${ampm}`;
 	}
 
+	// =========================================================
+	// Add blank alert to alertTable
+	// =========================================================
 	async function hdlAddAlert() {
 		if (Notification.permission !== 'granted') {
 			return alertNotifsOff();
@@ -229,13 +236,6 @@
 			const completeTimeString = parseCompleteString(completeTimeStamp);
 
 			const isComplete = completeTimeStamp <= new Date().valueOf();
-			const isSoonest = alertTable.every((row) => {
-				return (
-					row.alertValue === null ||
-					row.completeTimeStamp < new Date().valueOf() ||
-					row.alertValue > event.target.value
-				);
-			});
 
 			//Add alert to alertTable
 			const tableEntry = {
