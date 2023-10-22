@@ -400,9 +400,5 @@
 		.responsive-button {
 			font-size: 1.7vh;
 		}
-
-		.counter-btn {
-			width: 3rem;
-		}
 	}
 </style>

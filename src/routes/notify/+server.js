@@ -26,6 +26,8 @@ process.on('SIGINT', function () {
 const query = adminDB.collection('alerts').where('isComplete', '==', false);
 
 const unsubscribe = query.onSnapshot(async (querySnapshot) => {
+	console.log('db change')
+	
 	const userSnap = await adminDB.collection('users').get();
 
 	const users = userSnap.docs.map((doc) => {
