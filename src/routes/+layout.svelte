@@ -5,62 +5,12 @@
 	import Starrail from './starrail/Starrail.svelte';
 	import Genshin from './genshin/Genshin.svelte';
 
-	import Toast from '$lib/components/Toast.svelte';
-
 	import trailblazePower from '$lib/images/trailblaze-power.webp';
 	import originalResin from '$lib/images/original-resin.webp';
 
 	import { page } from '$app/stores';
-	import { onMount } from 'svelte';
-
-	import { app } from '$lib/firebase';
-	import { getMessaging, getToken } from 'firebase/messaging';
-
-	import { PUBLIC_VAPID_KEY } from '$env/static/public';
-
-	import { dev } from '$app/environment';
 
 	let sub;
-
-	onMount(async () => {
-		// if ('serviceWorker' in navigator) {
-		// 	navigator.serviceWorker
-		// 		.register('firebase-messaging-sw.js', { type: dev ? 'module' : 'classic', scope: '/firebase-cloud-messaging-push-scope' })
-		// 		.then(function (reg) {
-		// 			// registration worked
-		// 			console.log('Registration succeeded. Scope is ' + reg.scope);
-		// 		})
-		// 		.catch(function (error) {
-		// 			// registration failed
-		// 			console.log('Registration failed with ' + error);
-		// 		});
-		// }
-
-		// const messaging = getMessaging(app);
-
-		// getToken(messaging, { vapidKey: PUBLIC_VAPID_KEY })
-		// 	.then((currentToken) => {
-		// 		if (currentToken) {
-		// 			console.log('current token for client: ', currentToken);
-		// 		} else {
-		// 			// Show permission request UI
-		// 			console.log(
-		// 				'No registration token available. Request permission to generate one.',
-		// 			);
-		// 			// ...
-		// 		}
-		// 	})
-		// 	.catch((err) => {
-		// 		console.log('An error occurred while retrieving token. ', err);
-		// 		// ...
-		// 	});
-
-		// navigator.serviceWorker.register('/service-worker.js', {type: dev ? 'module' : 'classic'});
-		// const reg = await navigator.serviceWorker.ready;
-		// reg.pushManager.subscribe({ userVisibleOnly: true });
-
-		
-	});
 </script>
 
 <div class="tabs w-full absolute top-0 justify-center overflow-x-hidden text-white">

@@ -26,7 +26,6 @@
 	let pause = false; // Pause resource update by timer while user editing so input isn't overwritten
 
 	let notify = false;
-	let notifyIntervalId;
 
 	//Prevent double presses on week boss counter buttons
 	let debounceTimer;
@@ -146,23 +145,6 @@
 			});
 		}, 1000);
 	}
-
-	//if notify changes, set document to blink and play sound
-	// $: if (notify) {
-	// 	const notifyText = `${resourceName} at ${curResource}!`;
-
-	// 	clearInterval(notifyIntervalId);
-
-	// 	notifyIntervalId = setInterval(() => {
-	// 		if (document.title === 'Hoyo Resource Timer') {
-	// 			document.title = notifyText;
-	// 		} else {
-	// 			document.title = 'Hoyo Resource Timer';
-	// 		}
-	// 	}, 1500);
-	// } else if (notifyIntervalId) {
-	// 	clearInterval(notifyIntervalId);
-	// }
 
 	// Enforce numeric input and maximum resource value
 	function enforceNumeric() {

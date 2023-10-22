@@ -1,9 +1,7 @@
 <script>
 	import { fade } from 'svelte/transition';
 	import { onMount } from 'svelte';
-	import { browser } from '$app/environment';
 	import { v4 as uuidv4 } from 'uuid';
-	import { dev } from '$app/environment';
 
 	import { db } from '$lib/firebase';
 	import {

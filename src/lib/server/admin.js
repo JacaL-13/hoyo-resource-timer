@@ -1,5 +1,5 @@
 import { getAuth } from 'firebase-admin/auth';
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { FB_CLIENT_EMAIL, FB_PRIVATE_KEY, FB_PROJECT_ID } from '$env/static/private';
 

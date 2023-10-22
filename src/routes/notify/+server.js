@@ -14,6 +14,7 @@ webPush.setVapidDetails(
 	PRIVATE_VAPID_KEY,
 );
 
+console.log('server started')
 
 let dbAlerts = [];
 
