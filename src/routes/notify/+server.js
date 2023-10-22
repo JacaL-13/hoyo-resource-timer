@@ -24,7 +24,11 @@ process.on('SIGINT', function () {
 	schedule.gracefulShutdown().then(() => process.exit(0));
 });
 
+console.log('db', adminDB)
+
 const query = adminDB.collection('alerts').where('isComplete', '==', false);
+
+console.log('query', query)
 
 const unsubscribe = query.onSnapshot(async (querySnapshot) => {
 	console.log('db change')
