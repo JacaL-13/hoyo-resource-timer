@@ -62,6 +62,8 @@ self.addEventListener('fetch', (event) => {
 });
 
 self.addEventListener('push', (event) => {
+	console.log(self.Notification && self.Notification.permission === 'granted')
+
 	if (!(self.Notification && self.Notification.permission === 'granted')) {
 		return;
 	}
