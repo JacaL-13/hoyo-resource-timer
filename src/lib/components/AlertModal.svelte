@@ -2,6 +2,7 @@
 	import { fade } from 'svelte/transition';
 	import { onMount } from 'svelte';
 	import { v4 as uuidv4 } from 'uuid';
+	import {browser} from '$app/environment';
 
 	import { db } from '$lib/firebase';
 	import {
@@ -40,7 +41,15 @@
 
 	let showDuplicateEntryAlert = false;
 
-	let time24hr = false;
+	// let time24hr = localStorage.getItem('time24hr')
+	let time24hr
+	if (browser) {
+		time24hr = localStorage.getItem('time24hr');
+		if (!time24hr) {
+			localStorage.setItem('time24hr', false);
+			time24hr = false;
+		}
+	}
 
 	let querySnapshot = [];
 	let alertTable = [];
@@ -158,6 +167,7 @@
 
 	function calculateTimeStamp(alertValue) {
 		const timeSinceAdded = timeElapsedInSeconds % (regenTime * 60);
+
 		return alertValue
 			? new Date().valueOf() +
 					((alertValue - curResource) * regenTime * 60 - timeSinceAdded) * 1000
@@ -181,12 +191,16 @@
 				: dateTime.getDate() - today === 1
 				? 'tomorrow'
 				: dateTime.getDate();
-		const hour = (dateTime.getHours() + 24) % 12 || 12;
+		const hour = time24hr
+			? dateTime.getHours() < 10
+				? '0' + dateTime.getHours()
+				: dateTime.getHours()
+			: (dateTime.getHours() + 24) % 12 || 12;
 		const minute =
 			dateTime.getMinutes() < 10
 				? '0' + dateTime.getMinutes()
 				: dateTime.getMinutes();
-		const ampm = dateTime.getHours() >= 12 ? 'pm' : 'am';
+		const ampm = time24hr ? '' : dateTime.getHours() >= 12 ? 'pm' : 'am';
 
 		return `${day} ${hour}:${minute} ${ampm}`;
 	}
@@ -410,6 +424,10 @@
 				id={`${resourceName}-24hour-check`}
 				class="checkbox checkbox-sm"
 				bind:checked={time24hr}
+				on:change={() => {
+					localStorage.setItem('time24hr', time24hr);
+					refreshAlertTable()
+				}}
 			/>
 		</label>
 		<div class="modal-action">

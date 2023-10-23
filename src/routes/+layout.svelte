@@ -1,6 +1,8 @@
 <script>
 	import '../app.css';
 
+	import Analytics from '$lib/Analytics.svelte';
+
 	//import genshin and starrail pages
 	import Starrail from './starrail/Starrail.svelte';
 	import Genshin from './genshin/Genshin.svelte';
@@ -12,6 +14,8 @@
 
 	let sub;
 </script>
+
+<Analytics />
 
 <div class="tabs w-full absolute top-0 justify-center overflow-x-hidden text-white">
 	<a
