@@ -33,13 +33,15 @@
 
 	let screenSizeY;
 
+	let showInfo = false;
+
 	let showAlerts = false;
 
 	let showNotifsOffAlert = false;
 
 	let currentTime = new Date().valueOf();
 
-	let rescheduleAlerts
+	let rescheduleAlerts;
 
 	// On mount, get the current resource, start time, and weekly boss set time from local storage
 	onMount(() => {
@@ -69,7 +71,6 @@
 
 			setTimer();
 		}
-		
 	});
 
 	// Parses time in seconds into a timer string
@@ -175,10 +176,10 @@
 	function hdlChange() {
 		startTime = new Date().valueOf();
 
-		timeElapsedInSeconds = Math.round((currentTime - startTime) / 1000)
-		
+		timeElapsedInSeconds = Math.round((currentTime - startTime) / 1000);
+
 		setResource = curResource;
-		rescheduleAlerts()
+		rescheduleAlerts();
 
 		localStorage.setItem('setResource' + tabId, setResource);
 		localStorage.setItem('startTime' + tabId, startTime);
@@ -302,6 +303,58 @@
 		}}>Clear Timer</button
 	>
 
+	<div class="modal z-40" class:modal-open={showInfo}>
+		<div class="modal-box flex flex-col items-center gap-y-2" style="min-width: 260px;">
+			<p>Thank you for using my app 🙂. Making this is a learning process for me so please understand if something doesn't work. If you notice any issues, have suggestions, or questions please send me an email.</p>
+			<div>
+				<a href="mailto: info@redcloud.dev">info@redcloud.dev</a>
+				<button class="btn btn-sm" on:click={() => {
+					navigator.clipboard.writeText('info@redcloud.dev')
+				}} >📋</button>
+			</div>
+			<!-- <div class="modal-action"> -->
+				<button
+					class="btn btn-sm relative -bottom-2 "
+					on:click={() => {
+						showInfo = false;
+					}}>✖️</button
+				>
+			<!-- </div> -->
+		</div>
+
+		<form method="dialog" class="modal-backdrop">
+			<button
+				on:click={() => {
+					showInfo = false;
+				}}>close</button
+			>
+		</form>
+	</div>
+
+	<button
+		class="swap swap-flip text-2xl absolute bottom-3 left-5 z-10"
+		class:swap-active={showInfo}
+		on:click={() => {
+			showInfo = !showInfo;
+		}}
+	>
+		<div class="swap-on" />
+		<div class="swap-off">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				fill="none"
+				viewBox="0 0 24 24"
+				class="stroke-info shrink-0 w-6 h-6"
+				><path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+				/></svg
+			>
+		</div>
+	</button>
+
 	<!-- // =========================================================
 	// Alert modal
 	// ========================================================= -->
@@ -315,7 +368,7 @@
 		{currentTime}
 		{timeElapsedInSeconds}
 		{alertNotifsOff}
-		bind:rescheduleAlerts={rescheduleAlerts}
+		bind:rescheduleAlerts
 	/>
 
 	{#if showNotifsOffAlert}
@@ -338,7 +391,6 @@
 	>
 		<div class="swap-on" />
 		<div class="swap-off">🔔</div>
-		<!-- <div>{showAlarms}</div> -->
 	</button>
 
 	<!-- // =========================================================
