@@ -63,9 +63,9 @@
 		// If localStorage exists, start the timer
 		if (startTime) {
 			currentTime = new Date().valueOf();
-			timeElapsedInSeconds = Math.floor((currentTime - startTime) / 1000);
+			timeElapsedInSeconds = Math.round((currentTime - startTime) / 1000);
 			curResource =
-				Math.floor(timeElapsedInSeconds / 60 / regenTime) + +setResource;
+				Math.round(timeElapsedInSeconds / 60 / regenTime) + +setResource;
 
 			setTimer();
 		}
@@ -107,11 +107,11 @@
 		intervalId = setInterval(() => {
 			currentTime = new Date().valueOf();
 
-			timeElapsedInSeconds = Math.floor((currentTime - startTime) / 1000);
+			timeElapsedInSeconds = Math.round((currentTime - startTime) / 1000);
 
 			if (!pause) {
 				curResource =
-					Math.floor(timeElapsedInSeconds / 60 / regenTime) + +setResource;
+					Math.round(timeElapsedInSeconds / 60 / regenTime) + +setResource;
 			}
 
 			if (curResource > maxResource) {
@@ -174,6 +174,9 @@
 	//Handle user change of current resource
 	function hdlChange() {
 		startTime = new Date().valueOf();
+
+		timeElapsedInSeconds = Math.round((currentTime - startTime) / 1000)
+		
 		setResource = curResource;
 		rescheduleAlerts()
 
