@@ -6,6 +6,7 @@
 	//import genshin and starrail pages
 	import Starrail from './starrail/Starrail.svelte';
 	import Genshin from './genshin/Genshin.svelte';
+	import RedeemCodes from './redeem-codes/RedeemCodes.svelte';
 
 	import trailblazePower from '$lib/images/trailblaze-power.webp';
 	import originalResin from '$lib/images/original-resin.webp';
@@ -46,7 +47,7 @@
 	>
 </div>
 
-<main class="flex flex-col items-center h-full overflow-hidden">
+<main class="flex flex-col items-center h-full overflow-hidden mt-11 ">
 	<div
 		class="flex flex-col h-full justify-center"
 		class:hidden={!$page.route.id?.includes('genshin')}
@@ -58,6 +59,12 @@
 		class:hidden={!$page.route.id?.includes('starrail')}
 	>
 		<Starrail />
+	</div>
+	<div
+		class="flex flex-col h-full w-full items-center justify-start"
+		class:hidden={!$page.route.id?.includes('redeem-codes')}
+	>
+		<RedeemCodes />
 	</div>
 
 	{#if !($page.route.id?.includes('genshin') || $page.route.id?.includes('starrail'))}
