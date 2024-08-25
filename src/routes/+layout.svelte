@@ -12,8 +12,25 @@
 	import originalResin from '$lib/images/original-resin.webp';
 
 	import { page } from '$app/stores';
+	import { onMount } from 'svelte';
 
-	let sub;
+	async function refreshDB() {
+		try {
+			const res = await fetch('/refresh-db', {
+				method: 'GET',
+			});
+
+			const text = await res.text();
+
+			console.debug(text);
+		} catch (error) {
+			console.error(error);
+		}
+	}
+
+	onMount(() => {
+		refreshDB();
+	});
 </script>
 
 <Analytics />
@@ -47,19 +64,19 @@
 	>
 </div>
 
-<main class="flex flex-col items-center h-full overflow-hidden mt-11 ">
-	<div
-		class="flex flex-col h-full justify-center"
+<main class="flex flex-col items-center h-full mt-11">
+	<!-- <div
+		class="flex flex-col h-full justify-center overflow-hidden"
 		class:hidden={!$page.route.id?.includes('genshin')}
 	>
 		<Genshin />
 	</div>
 	<div
-		class="flex flex-col h-full justify-center"
+		class="flex flex-col h-full justify-center overflow-hidden"
 		class:hidden={!$page.route.id?.includes('starrail')}
 	>
 		<Starrail />
-	</div>
+	</div> -->
 	<div
 		class="flex flex-col h-full w-full items-center justify-start"
 		class:hidden={!$page.route.id?.includes('redeem-codes')}

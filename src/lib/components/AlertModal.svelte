@@ -19,6 +19,8 @@
 	} from 'firebase/firestore';
 	import { getAuth, signInAnonymously } from 'firebase/auth';
 
+	import { user } from '$lib/auth';
+
 	export let showAlerts;
 	export let setShowAlerts;
 	export let curResource = 0;
@@ -88,19 +90,19 @@
 	// If different, update the user ID in all the alerts associated with the previous user ID
 	async function checkUserId() {
 		const localUserId = localStorage.getItem('userId');
-		if (localUserId && localUserId !== auth.currentUser.uid) {
+		if (localUserId && localUserId !== $user.uid) {
 			const q = query(collection(db, 'alerts'), where('userId', '==', localUserId));
 
 			const querySnapshot = await getDocs(q);
 
 			querySnapshot.forEach((document) => {
 				updateDoc(doc(db, 'alerts', document.id), {
-					userId: auth.currentUser.uid,
+					userId: $user.uid,
 				});
 			});
 
 		}
-		localStorage.setItem('userId', auth.currentUser.uid);
+		localStorage.setItem('userId', $user.uid);
 	}
 
 	async function updateSubscription() {
@@ -118,27 +120,29 @@
 		}
 
 		// update subscription in database
-		if (!auth.currentUser) {
-			await signInAnonymously(auth)
-				.then(checkUserId)
-				.catch((err) => console.error('server error: ', err));
-		}
+		// if (!auth.currentUser) {
+		// 	await signInAnonymously(auth)
+		// 		.then(checkUserId)
+		// 		.catch((err) => console.error('server error: ', err));
+		// }
 
-		setDoc(doc(db, 'users', auth.currentUser.uid), {
+		checkUserId();
+
+		setDoc(doc(db, 'users', $user.uid), {
 			subscription: subscription?.toJSON() || null,
 		});
 	}
 
 	async function refreshAlertTable() {
-		if (!auth.currentUser) {
-			await signInAnonymously(auth)
-				.then(checkUserId)
-				.catch((err) => console.error('server error: ', err));
-		}
+		// if (!auth.currentUser) {
+		// 	await signInAnonymously(auth)
+		// 		.then(checkUserId)
+		// 		.catch((err) => console.error('server error: ', err));
+		// }
 
 		const q = query(
 			collection(db, 'alerts'),
-			where('userId', '==', auth.currentUser.uid),
+			where('userId', '==', $user.uid),
 			orderBy('createdAt', 'asc'),
 		);
 
@@ -276,7 +280,7 @@
 			//Add alert to alertTable
 			const tableEntry = {
 				alertId: alertTable[index].alertId || uuidv4(),
-				userId: auth.currentUser.uid,
+				userId: $user.uid,
 				alertValue: parseInt(event.target.value),
 				alertMessage: `${resourceName} at ${event.target.value}!`,
 				completeTimeStamp,
