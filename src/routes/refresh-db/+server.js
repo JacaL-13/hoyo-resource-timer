@@ -1,19 +1,7 @@
 import { error } from '@sveltejs/kit';
 
 import { adminDB } from '$lib/server/admin';
-import {
-	collection,
-	getDocs,
-	query,
-	where,
-	doc,
-	orderBy,
-	deleteDoc,
-	Timestamp,
-	setDoc,
-	updateDoc,
-	limit,
-} from 'firebase-admin/firestore';
+import { Timestamp } from 'firebase-admin/firestore';
 
 import scrape from 'website-scraper';
 import fs from 'fs';
@@ -26,38 +14,52 @@ const options = {
 // set to a date in the past to force a scrape
 let lastScrapeTime = new Date('2021-01-01T00:00:00Z');
 
-const scrapeTimes = [18, 12, 6, 0];
-
+const scrapeTimes = [12, 0];
 
 export async function GET() {
 	const now = new Date();
-	
+
 	const todayScrapeTimes = scrapeTimes.map((hour) => {
 		const date = new Date();
 		date.setHours(hour, 0, 0, 0);
 		return date;
 	});
-	
+
 	const mostRecentScrapeTime = todayScrapeTimes.find((scrapeTime) => now > scrapeTime);
 
 	if (lastScrapeTime < mostRecentScrapeTime) {
-		// get the most recent scrape time from the database
-		q = query(collection(adminDB, 'redeemCodes'), orderBy('updatedDT', 'desc'), limit(1));
-		const querySnapshot = await getDocs(q);
-		if (querySnapshot.empty) {
-			throw error(500, 'No redeem codes found in the database');
-		} else {
-			lastScrapeTime = querySnapshot.docs[0].data().updatedDT.toDate();
-		}
+		// // get the most recent scrape time from the database
+		// q = query(
+		// 	collection(adminDB, 'redeemCodes'),
+		// 	orderBy('updatedDT', 'desc'),
+		// 	limit(1),
+		// );
+		// const querySnapshot = await getDocs(q);
+		// if (querySnapshot.empty) {
+		// 	throw error(500, 'No redeem codes found in the database');
+		// } else {
+		// 	lastScrapeTime = querySnapshot.docs[0].data().updatedDT.toDate();
+		// }
 
-		console.debug('lastScrapeTime', lastScrapeTime, 'mostRecentScrapeTime', mostRecentScrapeTime);
-
+		await adminDB
+			.collection('redeemCodes')
+			.orderBy('updatedDT', 'desc')
+			.limit(1)
+			.get()
+			.then((querySnapshot) => {
+				if (querySnapshot.empty) {
+					throw error(500, 'No redeem codes found in the database');
+				} else {
+					lastScrapeTime = querySnapshot.docs[0].data().updatedDT.toDate();
+				}
+			});
 	}
 
 	let result = 'Codes last updated ' + lastScrapeTime;
 
-	if (false) {
-	// if (lastScrapeTime < mostRecentScrapeTime) {
+	if (lastScrapeTime < mostRecentScrapeTime) {
+		// if (lastScrapeTime < mostRecentScrapeTime) {
+
 		const folderName = new Date().toJSON().replace(/[^\w\s]/gi, '');
 
 		const scrapeFiles = [
@@ -85,8 +87,6 @@ export async function GET() {
 			};
 		});
 
-		console.debug('urls', urls);
-
 		// do the scrape
 		const options = {
 			urls,
@@ -96,12 +96,24 @@ export async function GET() {
 
 		const scrapeResult = await scrape(options);
 
-		console.debug('scrapeResult', scrapeResult);
-
-		scrapeFiles.forEach(file => {
+		scrapeFiles.forEach((file) => {
 			parseFile(file.game, folderName, file.fileName);
 		});
+
+		// Delete the scraped files
+		fs.rm(
+			`src/lib/server/scraped-files/${folderName}`,
+			{ recursive: true },
+			(err) => {
+				if (err) {
+					console.error(err);
+					return;
+				}
+			},
+		);
 	}
+
+	console.log(result);
 
 	return new Response(result);
 }
@@ -119,12 +131,31 @@ async function parseFile(game, folderName, fileName) {
 		return header.replace(/<[^>]*>/g, '').trim();
 	});
 	const codes = rows.slice(1).map((row) => {
-		const cells = row.match(/<td[\s\S]*?<\/td>/g).map((cell) => {
+		const cells = row.match(/<td[\s\S]*?<\/td>/g).map((cell, i) => {
+			// If header is 'Code', extract <code> items into an array
+			if (headers[i] === 'Code') {
+				let codes = cell.match(/<code\b[^>]*>([\s\S]*?)<\/code>/g);
+
+				if (codes) {
+					codes = codes.map((code) => {
+						return code.replace(/<[^>]*>/g, '').trim();
+					});
+
+					return codes;
+				} else {
+					// skip row
+					return 'No codes, skip row';
+				}
+			}
+
 			// Preserve line breaks while removing HTML tags
-			return cell
-				.replace(/<br\s*\/?>/gi, '\n')
-				.replace(/<[^>]*>/g, '')
-				.trim();
+			return (
+				cell
+					.replace(/<[^>]*>/g, ' ')
+					// Remove extra whitespace
+					.replace(/\s+/g, ' ')
+					.trim()
+			);
 		});
 		return headers.reduce((acc, header, i) => {
 			acc[header] = cells[i];
@@ -132,39 +163,59 @@ async function parseFile(game, folderName, fileName) {
 		}, {});
 	});
 
-	const codesCleaned = codes.map((item) => {
-		const code = item['Code'].split('\n')[0].split('[')[0];
-		const expirationDate = item['Duration'].split('\n')[1].split(': ')[1];
-		
-		return {
-			//remove all after '[' from code
-			docId: game + '-' + code,
-			game,
-			code,
-			server: item['Server'],
-			isExpired: item['Duration'].toLowerCase().includes('expired'),
-			discoveredDate: item['Duration'].split('\n')[0].split(': ')[1],
-			expirationDate: expirationDate ? expirationDate : 'undefined',
-			updatedDT: Timestamp.fromDate(new Date()),
-		};
-	});
+	const codesCleaned = codes
+		.filter((item) => item['Code'] !== 'No codes, skip row')
+		.map((item) => {
 
-	codesCleaned.forEach((code) => {
-		console.debug('code', code.game, code.code, code.expirationDate);
+			const code = item['Code'][0];
 
-		// upsert to database
-		const res = adminDB.collection('redeemCodes').doc(code.docId).set(code);
-	});
+			let duration = item['Duration'];
 
-	
+			const isExpired = duration.toLowerCase().includes('expired');
 
-	// setDoc(doc(db, 'alerts', tableEntry.alertId), {
-	// 	userId: tableEntry.userId,
-	// 	alertValue: tableEntry.alertValue,
-	// 	alertMessage: tableEntry.alertMessage,
-	// 	completeTimeStamp,
-	// 	completeTimeString,
-	// 	isComplete,
-	// 	createdAt: tableEntry.createdAt,
-	// });
+			const durationSplit = duration.split(': ');
+
+			let discoveredDate = durationSplit[1];
+			let expirationDate = durationSplit[2];
+			discoveredDate = discoveredDate.slice(0, discoveredDate.indexOf(',') + 6);
+			expirationDate = expirationDate?.includes(',')
+				? expirationDate.slice(0, expirationDate.indexOf(',') + 6)
+				: null;
+
+			discoveredDate = discoveredDate
+				? Timestamp.fromDate(new Date(discoveredDate))
+				: null;
+			expirationDate = expirationDate
+				? Timestamp.fromDate(new Date(expirationDate))
+				: null;
+
+			return {
+				docId: game + '-' + code,
+				game,
+				code,
+				server: item['Server'],
+				isExpired: duration.toLowerCase().includes('expired'),
+				discoveredDate,
+				expirationDate,
+				updatedDT: Timestamp.fromDate(new Date()),
+			};
+		});
+
+	// check if latest code is already in database
+	const checkDoc = await adminDB
+		.collection('redeemCodes')
+		.doc(codesCleaned[0].docId)
+		.get();
+
+	if (checkDoc.exists) {
+		console.log('No new codes found.');
+	} else {
+		console.log('New codes found. Updating database.');
+
+		codesCleaned.forEach((code) => {
+			// upsert to database
+			console.debug('inserting code', code)
+			const res = adminDB.collection('redeemCodes').doc(code.docId).set(code);
+		});
+	}
 }

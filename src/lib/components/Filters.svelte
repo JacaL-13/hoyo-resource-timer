@@ -6,15 +6,15 @@
 		gi: true,
 		hsr: true,
 		zzz: true,
-		expired: false,
+		isExpired: false,
 	};
 
 	// on mount get user Filters
 	onMount(() => {
 		// get user Filters from local storage
-		let Filters = localStorage.getItem('filters');
-		if (Filters) {
-			filters = JSON.parse(Filters);
+		let localFilters = localStorage.getItem('filters');
+		if (localFilters) {
+			filters = JSON.parse(localFilters);
 		}
 	});
 
@@ -22,8 +22,6 @@
 
 	// when a checkbox is changed, update the user Filters
 	function hdlChange(e) {
-		localStorage.setItem('filters', JSON.stringify(filters));
-
 		dispatch('changeFilters', filters);
 	}
 </script>
@@ -91,7 +89,7 @@
 
 	<label class="swap">
 		<!-- expired -->
-		<input type="checkbox" bind:checked={filters.expired} on:change={hdlChange} />
+		<input type="checkbox" bind:checked={filters.isExpired} on:change={hdlChange} />
 		<div class="swap-on btn btn-sm rounded-md btn-info  transition-none">
 			Expired
 		</div>
@@ -104,13 +102,6 @@
 </div>
 
 <style>
-	@media (min-width: 425px) {
-		/* show text when screen is wider than 640px */
-		responsive {
-			display: block;
-		}
-	}
-
 	.btn-sm {
 		/* top and bottom 0, left and right 0.9 */
 		padding: 0.1rem 0.5rem;

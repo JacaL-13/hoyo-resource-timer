@@ -1,6 +1,7 @@
 <script>
 	import { fade } from 'svelte/transition';
 	import { onMount } from 'svelte';
+	import { writable } from 'svelte/store';
 	import { v4 as uuidv4 } from 'uuid';
 	import { browser } from '$app/environment';
 
@@ -21,88 +22,163 @@
 		setDoc,
 		updateDoc,
 		limit,
+		startAt,
 	} from 'firebase/firestore';
 
 	import { user } from '$lib/auth';
 
-	let codeList = [];
+	const codeList = writable([]);
+	const filterStore = writable({
+		gi: true,
+		hsr: true,
+		zzz: true,
+		isExpired: false,
+	});
 
-	let codesSnapshot;
-	let userToCodesSnapshot;
-
-	onMount(async () => {
-		// Get all codes
-		let q = query(
-			collection(db, 'redeemCodes'),
-			orderBy('isExpired', 'asc'),
-			orderBy('discoveredDate', 'desc'),
-			orderBy('expirationDate', 'desc'),
-			limit(10),
-		);
-
-		codesSnapshot = await getDocs(q);
-
-		q = query(collection(db, 'usersToCodes'), where('userId', '==', $user.uid), where('codeId', 'in', codesSnapshot.docs.map((doc) => doc.id)));
-
-		userToCodesSnapshot = await getDocs(q);
-
-		// Get filters from local storage
-		let filters = localStorage.getItem('filters');
-		if (filters) {
-			filters = JSON.parse(filters);
-			filterList(filters);
+	onMount(() => {
+		// get codes from localstorage
+		const checkLocal = localStorage.getItem('codes');
+		if (checkLocal) {
+			checkForNewCodes(JSON.parse(checkLocal));
 		} else {
-			filterList({ gi: true, hsr: true, zzz: true });
+			// get codes from firestore
+			getCodes();
+		}
+
+		// get filters from localstorage
+		const localFilters = localStorage.getItem('filters');
+		if (localFilters) {
+			filterStore.set(JSON.parse(localFilters));
 		}
 	});
 
-	function hdlChangeFilters(e) {
-		let filters = e.detail;
+	async function getCodes() {
+		console.log('Codes not found in local storage. Getting codes from database...');
 
-		filterList(filters);
-	}
+		const q = query(
+			collection(db, 'redeemCodes'),
+			orderBy('isExpired'),
+			orderBy('discoveredDate', 'desc'),
+			orderBy('expirationDate', 'desc'),
+		);
 
-	function filterList(filters) {
-		codeList = [];
-
-		codesSnapshot.forEach((doc) => {
-			//get code used value
-			const userCodeData = userToCodesSnapshot.docs.find(
-				(userToCode) => userToCode.data().codeId === doc.id,
-			);
-			const codeUsed = userCodeData ? userCodeData.data().used : false;
-
-			if (!filters.expired && doc.data().isExpired) {
-				return;
-			}
-			if (filters[doc.data().game]) {
-				const codeData = {
-					...doc.data(),
-					codeId: doc.id,
-					used: codeUsed,
-				};
-				codeList = [...codeList, codeData];
-			}
+		const codesSnapshot = await getDocs(q).catch((error) => {
+			console.error('Error getting codes');
 		});
 
-		// sort code list by expired, used, discovered date, expiration date
-		codeList.sort((a, b) => {
+		// Get the user's codes from the 'usersToCodes' collection in Firestore
+		const userToCodesSnapshot = await getDocs(
+			query(collection(db, 'usersToCodes'), where('userId', '==', $user.uid)),
+		).catch((error) => {
+			console.error('Error getting user data');
+		});
+
+		let firestoreCodes = [];
+		codesSnapshot.forEach((doc) => {
+			const code = doc.data();
+			const userToCode = userToCodesSnapshot.docs.find(
+				(userToCode) => userToCode.data().codeId === doc.id,
+			);
+
+			// Create an object for each code with additional information
+			firestoreCodes.push({
+				docId: doc.id,
+				...code,
+				used: userToCode ? userToCode.data().used : false,
+			});
+		});
+
+		// Set the codeList store with the Firestore codes
+		codeList.set(firestoreCodes);
+
+		// Save the Firestore codes to local storage
+		localStorage.setItem('codes', JSON.stringify(firestoreCodes));
+	}
+
+	async function checkForNewCodes(localCodes) {
+		if (localCodes.length === 0) {
+			getCodes();
+			return;
+		}
+
+		// get the latest code for each game from Firestore
+		const giQuery = query(
+			collection(db, 'redeemCodes'),
+			where('game', '==', 'gi'),
+			orderBy('discoveredDate', 'desc'),
+			limit(1),
+		);
+		const hsrQuery = query(
+			collection(db, 'redeemCodes'),
+			where('game', '==', 'hsr'),
+			orderBy('discoveredDate', 'desc'),
+			limit(1),
+		);
+		const zzzQuery = query(
+			collection(db, 'redeemCodes'),
+			where('game', '==', 'zzz'),
+			orderBy('discoveredDate', 'desc'),
+			limit(1),
+		);
+
+		const snapshots = await Promise.all([
+			getDocs(giQuery),
+			getDocs(hsrQuery),
+			getDocs(zzzQuery),
+		]);
+
+		for (let i = 0; i < snapshots.length; i++) {
+			if (snapshots[i].empty) {
+				continue;
+			}
+
+			const codeId = snapshots[i].docs[0].id;
+
+			// check if the code is already in local storage
+			const codeExists = localCodes.find(({ docId }) => docId === codeId);
+
+			// if the code is not in local storage, break and get all codes from Firestore
+			if (!codeExists) {
+				getCodes();
+				break;
+			} else {
+				// set the codeList store with the local codes
+				codeList.set(localCodes);
+			}
+		}
+	}
+
+	//When codeList or filterStore changes, filter the codes based on the user's filters
+
+	let filteredCodes = [];
+
+	$: filteredCodes = $codeList
+		.filter((code) => {
+			const filters = $filterStore;
+			return !(!filters.isExpired && code.isExpired) && filters[code.game];
+		})
+		.toSorted((a, b) => {
+			// sort by expired status, then by used, then by discovered date desc
 			if (a.isExpired === b.isExpired) {
 				if (a.used === b.used) {
-					if (a.discoveredDate === b.discoveredDate) {
-						return a.expirationDate - b.expirationDate;
-					}
-					return a.discoveredDate - b.discoveredDate;
+					// convert the discoveredDate to a date for comparison
+					return new Date(b.discoveredDate) - new Date(a.discoveredDate);
 				}
 				return a.used - b.used;
 			}
-			return a.isExpired - b.isExpired;
 		});
 
-		// orderBy('game'),
-		// 	orderBy('isExpired', 'asc'),
-		// 	orderBy('discoveredDate', 'desc'),
-		// 	orderBy('expirationDate', 'desc'),
+	// when the codeList changes, update local storage
+	$: {
+		if ($codeList.length > 0) {
+			localStorage.setItem('codes', JSON.stringify($codeList));
+		}
+	}
+
+	function hdlChangeFilters(e) {
+		filterStore.set(e.detail);
+		// update the filters in local storage
+		localStorage.setItem('filters', JSON.stringify(e.detail));
 	}
 
 	import gi from '$lib/images/genshin.webp';
@@ -116,25 +192,31 @@
 	};
 
 	function hdlCheckUsed(e) {
+		console.debug('e:', e.detail);
+
 		// update the used value in the userToCodes collection
 		const { codeId, used } = e.detail;
 
-		const userToCode = userToCodesSnapshot.docs.find(
-			(userToCode) => userToCode.data().codeId === codeId,
-		);
-		// if the userToCode exists, update the used value else create a new userToCode
-		if (userToCode) {
-			updateDoc(doc(db, 'usersToCodes', userToCode.id), {
-				used,
+		const userToCodeId = `${$user.uid}-${codeId}`;
+
+		console.debug('userToCodeId:', userToCodeId);
+		
+		setDoc(doc(db, 'usersToCodes', userToCodeId), {
+			userId: $user.uid,
+			codeId,
+			used,
+			createdAt: Timestamp.now(),
+		});
+
+		// update the codeList store
+		codeList.update((codes) => {
+			return codes.map((code) => {
+				if (code.docId === codeId) {
+					code.used = used;
+				}
+				return code;
 			});
-		} else {
-			setDoc(doc(db, 'usersToCodes', uuidv4()), {
-				userId: $user.uid,
-				codeId,
-				used,
-				createdAt: Timestamp.now(),
-			});
-		}
+		});
 	}
 </script>
 
@@ -143,20 +225,20 @@
 <Filters on:changeFilters={hdlChangeFilters} />
 
 <ul class="flex flex-col w-full max-w-xl gap-y-3">
-	{#key codeList}
-		{#if codeList.length === 0}
+	{#key filteredCodes}
+		{#if filteredCodes.length === 0}
 			<p>Loading...</p>
 		{:else}
-			{#each codeList as code}
+			{#each filteredCodes as code}
 				<li key={code.docId}>
 					<Card>
 						<RedeemCode
 							icon={gameIcons[code.game]}
 							code={code.code}
-							codeId={code.codeId}
+							codeId={code.docId}
 							expired={code.isExpired}
 							game={code.game}
-							bind:used={code.used}
+							used={code.used}
 							on:checkUsed={hdlCheckUsed}
 						/>
 					</Card>

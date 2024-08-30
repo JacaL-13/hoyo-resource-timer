@@ -21,8 +21,7 @@
 			});
 
 			const text = await res.text();
-
-			console.debug(text);
+			
 		} catch (error) {
 			console.error(error);
 		}
