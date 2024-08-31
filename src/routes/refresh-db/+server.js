@@ -78,6 +78,11 @@ export async function GET() {
 				fileName: 'hsr.html',
 				url: 'https://honkai-star-rail.fandom.com/wiki/Redemption_Code',
 			},
+			{
+				game: 'zzz',
+				fileName: 'zzz.html',
+				url: 'https://game8.co/games/Zenless-Zone-Zero/archives/435683',
+			},
 		];
 
 		const urls = scrapeFiles.map((file) => {
@@ -97,7 +102,11 @@ export async function GET() {
 		const scrapeResult = await scrape(options);
 
 		scrapeFiles.forEach((file) => {
-			parseFile(file.game, folderName, file.fileName);
+			if (file.game === 'zzz') {
+				parseZZZ(folderName, file.fileName);
+			} else {
+				parseFile(file.game, folderName, file.fileName);
+			}
 		});
 
 		// Delete the scraped files
@@ -166,7 +175,6 @@ async function parseFile(game, folderName, fileName) {
 	const codesCleaned = codes
 		.filter((item) => item['Code'] !== 'No codes, skip row')
 		.map((item) => {
-
 			const code = item['Code'][0];
 
 			let duration = item['Duration'];
@@ -208,13 +216,86 @@ async function parseFile(game, folderName, fileName) {
 		.get();
 
 	if (checkDoc.exists) {
-		console.log('No new codes found.');
+		console.log(`No new ${game} codes found.`);
 	} else {
-		console.log('New codes found. Updating database.');
+		console.log(`New ${game} codes found. Updating database.`);
 
 		codesCleaned.forEach((code) => {
 			// upsert to database
-			console.debug('inserting code', code)
+			const res = adminDB.collection('redeemCodes').doc(code.docId).set(code);
+		});
+	}
+}
+
+async function parseZZZ(folderName, fileName) {
+	const html = fs.readFileSync(
+		`src/lib/server/scraped-files/${folderName}/${fileName}`,
+		'utf8',
+	);
+
+	// Find <ul> with class 'a-list' and get the first <a> in each <li> item
+	const list = html.match(/<ul class="a-list[\s\S]*?<\/ul>/g)[0];
+	const items = list.match(/<li[\s\S]*?<\/li>/g);
+	let codes = items.map((item) => {
+		return {
+			code: item
+				.match(/<a[\s\S]*?<\/a>/g)[0]
+				.replace(/<[^>]*>/g, '')
+				.trim(),
+			// Set discovered date to the first day of the current month
+			discoveredDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+			isExpired: false,
+		};
+	});
+
+	// Find the next <ul> with class 'a-list' and get the first <a> in each <li> item
+	const expiredList = html.match(/<ul class="a-list[\s\S]*?<\/ul>/g)[1];
+	const expiredItems = expiredList.match(/<li[\s\S]*?<\/li>/g);
+	const expiredCodes = expiredItems.map((item) => {
+		return {
+			code: item
+				.match(/<a[\s\S]*?<\/a>/g)[0]
+				.replace(/<[^>]*>/g, '')
+				.trim(),
+			isExpired: true,
+		};
+	});
+
+	codes = codes.concat(expiredCodes);
+
+	const codesCleaned = codes.map((item) => {
+		const code = item['code'];
+
+		const discoveredDate = item.discoveredDate
+			? Timestamp.fromDate(new Date(item.discoveredDate))
+			: null;
+
+		return {
+			docId: 'zzz-' + code,
+			game: 'zzz',
+			code,
+			isExpired: item['isExpired'],
+			discoveredDate,
+			expirationDate: null,
+			updatedDT: Timestamp.fromDate(new Date()),
+		};
+	});
+
+	console.debug(codesCleaned);
+
+	// check if latest code is already in database
+	const checkDoc = await adminDB
+		.collection('redeemCodes')
+		.doc(codesCleaned[0].docId)
+		.get();
+
+	if (checkDoc.exists) {
+		console.log('No new zzz codes found.');
+	} else {
+		console.log('New zzz codes found. Updating database.');
+
+		codesCleaned.forEach((code) => {
+			// upsert to database
 			const res = adminDB.collection('redeemCodes').doc(code.docId).set(code);
 		});
 	}
