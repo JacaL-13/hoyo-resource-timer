@@ -2,6 +2,7 @@ import { error } from '@sveltejs/kit';
 
 import { adminDB } from '$lib/server/admin';
 import { Timestamp } from 'firebase-admin/firestore';
+import { json } from '@sveltejs/kit'
 
 import scrape from 'website-scraper';
 import fs from 'fs';
@@ -12,7 +13,7 @@ const options = {
 };
 
 // set to a date in the past to force a scrape
-let lastScrapeTime = new Date('2021-01-01T00:00:00Z');
+let lastScrapeTime = null;
 
 const scrapeTimes = [12, 0];
 
@@ -27,20 +28,8 @@ export async function GET() {
 
 	const mostRecentScrapeTime = todayScrapeTimes.find((scrapeTime) => now > scrapeTime);
 
-	if (lastScrapeTime < mostRecentScrapeTime) {
-		// // get the most recent scrape time from the database
-		// q = query(
-		// 	collection(adminDB, 'redeemCodes'),
-		// 	orderBy('updatedDT', 'desc'),
-		// 	limit(1),
-		// );
-		// const querySnapshot = await getDocs(q);
-		// if (querySnapshot.empty) {
-		// 	throw error(500, 'No redeem codes found in the database');
-		// } else {
-		// 	lastScrapeTime = querySnapshot.docs[0].data().updatedDT.toDate();
-		// }
-
+	// If server is restarted, lastScrapeTime will be null
+	if (!lastScrapeTime) {
 		await adminDB
 			.collection('redeemCodes')
 			.orderBy('updatedDT', 'desc')
@@ -55,10 +44,14 @@ export async function GET() {
 			});
 	}
 
-	let result = 'Codes last updated ' + lastScrapeTime;
+	console.log('lastScrapeTime', lastScrapeTime);
+
+	let newCodesFound = false;
 
 	if (lastScrapeTime < mostRecentScrapeTime) {
 		// if (lastScrapeTime < mostRecentScrapeTime) {
+
+		console.log('Searching for new codes...');
 
 		const folderName = new Date().toJSON().replace(/[^\w\s]/gi, '');
 
@@ -101,13 +94,18 @@ export async function GET() {
 
 		const scrapeResult = await scrape(options);
 
-		scrapeFiles.forEach((file) => {
-			if (file.game === 'zzz') {
-				parseZZZ(folderName, file.fileName);
-			} else {
-				parseFile(file.game, folderName, file.fileName);
-			}
-		});
+		await Promise.all(
+			scrapeFiles.map(async (file) => {
+				if (file.game === 'zzz') {
+					newCodesFound =
+						(await parseZZZ(folderName, file.fileName)) || newCodesFound;
+				} else {
+					newCodesFound =
+						(await parseFile(file.game, folderName, file.fileName)) ||
+						newCodesFound;
+				}
+			}),
+		);
 
 		// Delete the scraped files
 		fs.rm(
@@ -122,9 +120,14 @@ export async function GET() {
 		);
 	}
 
-	console.log(result);
+	lastScrapeTime = new Date();
 
-	return new Response(result);
+	const res = {
+		dbLastUpdated : lastScrapeTime,
+		newCodesFound
+	};
+
+	return json(res);
 }
 
 async function parseFile(game, folderName, fileName) {
@@ -216,14 +219,15 @@ async function parseFile(game, folderName, fileName) {
 		.get();
 
 	if (checkDoc.exists) {
-		console.log(`No new ${game} codes found.`);
+		console.log(`No new ${game} codes found`);
+		return false;
 	} else {
-		console.log(`New ${game} codes found. Updating database.`);
-
 		codesCleaned.forEach((code) => {
 			// upsert to database
 			const res = adminDB.collection('redeemCodes').doc(code.docId).set(code);
 		});
+		console.log(`New ${game} codes found. Added to database`);
+		return true;
 	}
 }
 
@@ -281,8 +285,6 @@ async function parseZZZ(folderName, fileName) {
 		};
 	});
 
-	console.debug(codesCleaned);
-
 	// check if latest code is already in database
 	const checkDoc = await adminDB
 		.collection('redeemCodes')
@@ -290,13 +292,14 @@ async function parseZZZ(folderName, fileName) {
 		.get();
 
 	if (checkDoc.exists) {
-		console.log('No new zzz codes found.');
+		console.log('No new ZZZ codes found');
+		return false;
 	} else {
-		console.log('New zzz codes found. Updating database.');
-
 		codesCleaned.forEach((code) => {
 			// upsert to database
 			const res = adminDB.collection('redeemCodes').doc(code.docId).set(code);
 		});
+		console.log('New ZZZ codes found. Added to database');
+		return true;
 	}
 }
