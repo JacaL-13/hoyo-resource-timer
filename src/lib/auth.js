@@ -1,5 +1,5 @@
 import { writable } from 'svelte/store';
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { getAuth, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 
 function authStore() {
 	let unsubscribe;
@@ -26,7 +26,7 @@ function authStore() {
 		unsubscribe = onAuthStateChanged(auth, (user) => {
 			if (!user) {
 				// sign in anonymously
-				auth.signInAnonymously().then((userCredential) => {
+				signInAnonymously(auth).then((userCredential) => {
 					set(userCredential.user);
 				});
 			} else {
