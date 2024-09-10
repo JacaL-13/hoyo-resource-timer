@@ -50,14 +50,14 @@
 		href="/"
 		role="tab"
 		class:tab-active={$page.route.id === '/'}
-		class="tab md:tab-lg px-8 w-1/12 "
-	>Home</a>
+		class="tab md:tab-lg px-8 w-1/5 whitespace-nowrap">Home 🏠</a
+	>
 	{#each navItems as item}
 		<a
 			href={item.href}
 			role="tab"
 			class:tab-active={$page.route.id?.includes(item.href)}
-			class="tab md:tab-lg flex-grow "
+			class="tab md:tab-lg flex-grow"
 		>
 			{item.text}
 		</a>
@@ -72,6 +72,6 @@
 
 <style>
 	.tab-active {
-	 border-bottom: 2px solid gray;		
+		border-bottom: 2px solid gray;
 	}
 </style>
