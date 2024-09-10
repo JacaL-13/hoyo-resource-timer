@@ -16,7 +16,6 @@
 				const data = await res.json();
 
 				if (data.newCodesFound) {
-					console.debug('New codes found, refreshing DB');
 					//force refresh
 					location.reload();
 				}

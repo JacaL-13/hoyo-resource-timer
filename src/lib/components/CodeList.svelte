@@ -192,14 +192,10 @@
 	};
 
 	function hdlCheckUsed(e) {
-		console.debug('e:', e.detail);
-
 		// update the used value in the userToCodes collection
 		const { codeId, used } = e.detail;
 
 		const userToCodeId = `${$user.uid}-${codeId}`;
-
-		console.debug('userToCodeId:', userToCodeId);
 		
 		setDoc(doc(db, 'usersToCodes', userToCodeId), {
 			userId: $user.uid,
