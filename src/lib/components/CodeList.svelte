@@ -224,7 +224,7 @@
 
 <Filters on:changeFilters={hdlChangeFilters} />
 
-<ul class="flex flex-col w-full max-w-xl gap-y-3">
+<ul class="flex flex-col w-full max-h-full overflow-auto max-w-xl gap-y-3">
 	{#key filteredCodes}
 		{#if filteredCodes.length === 0}
 			<p>Loading...</p>

@@ -7,7 +7,7 @@ import { json } from '@sveltejs/kit'
 import scrape from 'website-scraper';
 import fs from 'fs';
 
-const options = {
+const scrapeOptions = {
 	urls: ['http://nodejs.org/'],
 	directory: './scraped-files/',
 };

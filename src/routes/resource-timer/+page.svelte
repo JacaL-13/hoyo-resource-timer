@@ -1,34 +1,38 @@
 <script>
-	import trailblazePower from '$lib/images/trailblaze-power.webp';
-	import originalResin from '$lib/images/original-resin.webp';
-	import { page } from '$app/stores';
+	import genshinIcon from '$lib/images/genshin.webp';
+	import starrailIcon from '$lib/images/starrail.webp';
 </script>
 
-<div class="tabs w-full absolute top-0 justify-center overflow-x-hidden text-white">
-	<a
-		href="/genshin"
-		class="tab tab-lifted w-1/2 tab-lg"
-		class:tab-active={$page.route.id?.includes('genshin')}
-		class:tab-inactive={!$page.route.id?.includes('genshin')}
-		>Genshin<img
-			class="mx-1"
-			src={originalResin}
-			alt="Original Resin icon"
-			width="32"
-			height="32"
+<svelte:head>
+	<title>Resource Timer</title>
+</svelte:head>
+
+<div
+	class="my-16 flex flex-col md:flex-row justify-around items-center w-full h-full gap-y-10"
+>
+	<a href="/resource-timer/genshin" class="text-center flex flex-col items-center gap-y-5">
+		<h3>Genshin Impact</h3>
+		<img
+			class="rounded-xl"
+			src={genshinIcon}
+			alt="Genshin Impact icon"
 		/>
 	</a>
-	<a
-		href="/starrail"
-		class="tab tab-lifted w-1/2 tab-lg"
-		class:tab-active={$page.route.id?.includes('starrail')}
-		class:tab-inactive={!$page.route.id?.includes('starrail')}
-		>Star Rail<img
-			class="mx-2"
-			src={trailblazePower}
-			alt="Trailblaze Power icon"
-			width="32"
-			height="32"
-		/></a
-	>
+
+	<a href="/resource-timer/starrail" class="text-center flex flex-col items-center gap-y-5">
+		<h3>Honkai: Star Rail</h3>
+		<img class="rounded-xl" src={starrailIcon} alt="Star Rail icon" />
+	</a>
 </div>
+
+<style>
+	img {
+		height: 30vh;
+	}
+
+	@media (min-width: 768px) {
+		a {
+			width: 30%;
+		}
+	}
+</style>

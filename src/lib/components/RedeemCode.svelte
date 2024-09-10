@@ -33,7 +33,7 @@
 
 <tr class="flex flex-row justify-between items-center w-full" class:expired>
 	<td class="flex flex-row col items-center gap-3">
-		<img class="rounded-sm" src={icon} alt={game} width="48" height="48" />
+		<img class="rounded-sm" src={icon} alt='game icon' width="48" height="48" />
 		<!-- only show text when screen is wider than  -->
 		<span class="w-1/2 hidden">{game.toUpperCase()}</span>
 	</td>
@@ -65,21 +65,6 @@
 			</svg>
 		</a>
 	</td>
-	<!-- if not expired, thumbs up and thumbs down buttons, else hourglass emoji -->
-	<!-- {#if expired === false}
-		<td class="w-1/4 flex flex-row justify-around items-center">
-			<button class="btn btn-sm rounded-md btn-info text-lg bg-blue-400">
-				👍
-			</button>
-			<button class="btn btn-sm rounded-md btn-error text-lg bg-red-400">
-				👎
-			</button>
-		</td>
-	{:else}
-		<td class="w-1/6 flex flex-row justify-between items-center">
-			<p class="text-center">⌛</p>
-		</td>
-	{/if} -->
 	<td>
 		{#if expired}
 			<p class="text-center">⌛</p>
