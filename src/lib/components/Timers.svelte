@@ -208,7 +208,7 @@
 
 <svelte:window bind:innerHeight={screenSizeY} />
 
-<div id="timers" class="flex flex-col items-center justify-around mt-12 mb-1 relative">
+<div id="timers" class="flex flex-col items-center justify-around mb-1 relative ">
 	<div class="w-auto h-auto mx-5">
 		<ActivityTable
 			{activityTable}

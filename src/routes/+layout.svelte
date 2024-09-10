@@ -3,71 +3,75 @@
 
 	import Analytics from '$lib/Analytics.svelte';
 
-	//import genshin and starrail pages
-	import Starrail from './starrail/Starrail.svelte';
-	import Genshin from './genshin/Genshin.svelte';
-
-	import trailblazePower from '$lib/images/trailblaze-power.webp';
-	import originalResin from '$lib/images/original-resin.webp';
-
+	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 
-	let sub;
+	async function refreshDB() {
+		try {
+			const res = await fetch('/refresh-db', {
+				method: 'GET',
+			});
+
+			if (res.ok) {
+				const data = await res.json();
+
+				if (data.newCodesFound) {
+					console.debug('New codes found, refreshing DB');
+					//force refresh
+					location.reload();
+				}
+			} else {
+				console.error('Failed to refresh DB');
+			}
+		} catch (error) {
+			console.error(error);
+		}
+	}
+
+	onMount(() => {
+		refreshDB();
+	});
+
+	const navItems = [
+		{
+			href: '/redeem-codes',
+			text: 'Redeem Codes',
+		},
+		{
+			href: '/resource-timer',
+			text: 'Resource Timer',
+		},
+	];
 </script>
+
+<div role="tablist" class="flex tabs tab-bordered justify-around">
+	<!-- home -->
+	<a
+		href="/"
+		role="tab"
+		class:tab-active={$page.route.id === '/'}
+		class="tab md:tab-lg px-8 w-1/5 whitespace-nowrap">Home 🏠</a
+	>
+	{#each navItems as item}
+		<a
+			href={item.href}
+			role="tab"
+			class:tab-active={$page.route.id?.includes(item.href)}
+			class="tab md:tab-lg flex-grow"
+		>
+			{item.text}
+		</a>
+	{/each}
+</div>
 
 <Analytics />
 
-<div class="tabs w-full absolute top-0 justify-center overflow-x-hidden text-white">
-	<a
-		href="/genshin"
-		class="tab tab-lifted w-1/2 tab-lg"
-		class:tab-active={$page.route.id?.includes('genshin')}
-		class:tab-inactive={!$page.route.id?.includes('genshin')}
-		>Genshin<img
-			class="mx-1"
-			src={originalResin}
-			alt="Original Resin icon"
-			width="32"
-			height="32"
-		/>
-	</a>
-	<a
-		href="/starrail"
-		class="tab tab-lifted w-1/2 tab-lg"
-		class:tab-active={$page.route.id?.includes('starrail')}
-		class:tab-inactive={!$page.route.id?.includes('starrail')}
-		>Star Rail<img
-			class="mx-2"
-			src={trailblazePower}
-			alt="Trailblaze Power icon"
-			width="32"
-			height="32"
-		/></a
-	>
-</div>
-
 <main class="flex flex-col items-center h-full overflow-hidden">
-	<div
-		class="flex flex-col h-full justify-center"
-		class:hidden={!$page.route.id?.includes('genshin')}
-	>
-		<Genshin />
-	</div>
-	<div
-		class="flex flex-col h-full justify-center"
-		class:hidden={!$page.route.id?.includes('starrail')}
-	>
-		<Starrail />
-	</div>
-
-	{#if !($page.route.id?.includes('genshin') || $page.route.id?.includes('starrail'))}
-		<slot />
-	{/if}
+	<slot />
 </main>
 
 <style>
-	.tab-inactive {
-		background-color: hsl(212, 18%, 12%);
-		color: #a8a8a8;
+	.tab-active {
+		border-bottom: 2px solid gray;
 	}
 </style>

@@ -11,7 +11,5 @@ const firebaseConfig = {
 	measurementId: 'G-7C7CBDHQSZ',
 };
 
-async function getSubscription() {}
-
 export const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);

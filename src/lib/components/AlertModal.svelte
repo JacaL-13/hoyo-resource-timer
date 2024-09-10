@@ -2,7 +2,7 @@
 	import { fade } from 'svelte/transition';
 	import { onMount } from 'svelte';
 	import { v4 as uuidv4 } from 'uuid';
-	import {browser} from '$app/environment';
+	import { browser } from '$app/environment';
 
 	import { db } from '$lib/firebase';
 	import {
@@ -18,6 +18,8 @@
 		updateDoc,
 	} from 'firebase/firestore';
 	import { getAuth, signInAnonymously } from 'firebase/auth';
+
+	import { user } from '$lib/auth';
 
 	export let showAlerts;
 	export let setShowAlerts;
@@ -41,8 +43,8 @@
 
 	let showDuplicateEntryAlert = false;
 
-	// let time24hr = localStorage.getItem('time24hr')
-	let time24hr
+	// 24hr time setting
+	let time24hr;
 	if (browser) {
 		time24hr = localStorage.getItem('time24hr');
 		if (!time24hr) {
@@ -51,7 +53,7 @@
 		}
 	}
 
-	let querySnapshot = [];
+	let alertSnapshot = [];
 	let alertTable = [];
 
 	//midnight of tomorrow
@@ -64,6 +66,7 @@
 		0,
 	);
 
+	// on mount get permission for notifications and check if user is signed in
 	onMount(async () => {
 		await Notification.requestPermission().then((result) => {
 			if (result === 'default') {
@@ -72,15 +75,35 @@
 		});
 
 		if (!auth.currentUser) {
-			await signInAnonymously(auth)
-				.then(() => {})
-				.catch((err) => console.error('server error: ', err));
+			await signInAnonymously(auth).then(checkUserId).catch((err) =>
+				console.error('server error: ', err),
+			);
 		}
 
 		updateSubscription();
 
 		refreshAlertTable();
 	});
+
+	
+	// Check if the user ID in local storage is different from the current user ID
+	// If different, update the user ID in all the alerts associated with the previous user ID
+	async function checkUserId() {
+		const localUserId = localStorage.getItem('userId');
+		if (localUserId && localUserId !== $user.uid) {
+			const q = query(collection(db, 'alerts'), where('userId', '==', localUserId));
+
+			const querySnapshot = await getDocs(q);
+
+			querySnapshot.forEach((document) => {
+				updateDoc(doc(db, 'alerts', document.id), {
+					userId: $user.uid,
+				});
+			});
+
+		}
+		localStorage.setItem('userId', $user.uid);
+	}
 
 	async function updateSubscription() {
 		if ('serviceWorker' in navigator && Notification.permission === 'granted') {
@@ -97,35 +120,40 @@
 		}
 
 		// update subscription in database
-		if (!auth.currentUser) {
-			await signInAnonymously(auth)
-				.then(() => {})
-				.catch((err) => console.error('server error: ', err));
-		}
+		// if (!auth.currentUser) {
+		// 	await signInAnonymously(auth)
+		// 		.then(checkUserId)
+		// 		.catch((err) => console.error('server error: ', err));
+		// }
 
-		setDoc(doc(db, 'users', auth.currentUser.uid), {
+		checkUserId();
+
+		setDoc(doc(db, 'users', $user.uid), {
 			subscription: subscription?.toJSON() || null,
 		});
 	}
 
 	async function refreshAlertTable() {
-		if (!auth.currentUser) {
-			await signInAnonymously(auth)
-				.then(() => {})
-				.catch((err) => console.error('server error: ', err));
-		}
+		// if (!auth.currentUser) {
+		// 	await signInAnonymously(auth)
+		// 		.then(checkUserId)
+		// 		.catch((err) => console.error('server error: ', err));
+		// }
 
 		const q = query(
 			collection(db, 'alerts'),
-			where('userId', '==', auth.currentUser.uid),
+			where('userId', '==', $user.uid),
 			orderBy('createdAt', 'asc'),
 		);
 
-		querySnapshot = await getDocs(q);
+		alertSnapshot = await getDocs(q);
 
 		alertTable = [];
 
-		querySnapshot.forEach((document) => {
+		// Add alerts to alertTable
+		alertSnapshot.forEach((document) => {
+
+			// If alert is not already in alertTable, add it
 			if (!alertTable.some((row) => row.alertId === document.id)) {
 				const { userId, alertValue, alertMessage, createdAt } = document.data();
 				const completeTimeStamp = calculateTimeStamp(alertValue);
@@ -252,7 +280,7 @@
 			//Add alert to alertTable
 			const tableEntry = {
 				alertId: alertTable[index].alertId || uuidv4(),
-				userId: auth.currentUser.uid,
+				userId: $user.uid,
 				alertValue: parseInt(event.target.value),
 				alertMessage: `${resourceName} at ${event.target.value}!`,
 				completeTimeStamp,
@@ -426,7 +454,7 @@
 				bind:checked={time24hr}
 				on:change={() => {
 					localStorage.setItem('time24hr', time24hr);
-					refreshAlertTable()
+					refreshAlertTable();
 				}}
 			/>
 		</label>
