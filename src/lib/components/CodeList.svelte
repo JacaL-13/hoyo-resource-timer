@@ -153,11 +153,11 @@
 	let filteredCodes = [];
 
 	$: filteredCodes = $codeList
-		.filter((code) => {
+		?.filter((code) => {
 			const filters = $filterStore;
 			return !(!filters.isExpired && code.isExpired) && filters[code.game];
 		})
-		.toSorted((a, b) => {
+		?.toSorted((a, b) => {
 			// sort by expired status, then by used, then by discovered date desc
 			if (a.isExpired === b.isExpired) {
 				if (a.used === b.used) {
@@ -166,7 +166,7 @@
 				}
 				return a.used - b.used;
 			}
-		});
+		}) ?? [];
 
 	// when the codeList changes, update local storage
 	$: {
