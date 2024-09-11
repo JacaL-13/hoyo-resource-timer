@@ -152,12 +152,12 @@
 
 	let filteredCodes = [];
 
-	$: filteredCodes = $codeList ? 
-		$codeList.filter((code) => {
+	$: filteredCodes = ($codeList || [])
+		.filter((code) => {
 			const filters = $filterStore;
 			return !(!filters.isExpired && code.isExpired) && filters[code.game];
 		})
-		?.toSorted((a, b) => {
+		.sort((a, b) => {
 			// sort by expired status, then by used, then by discovered date desc
 			if (a.isExpired === b.isExpired) {
 				if (a.used === b.used) {
@@ -166,7 +166,8 @@
 				}
 				return a.used - b.used;
 			}
-		}) : [];
+			return a.isExpired - b.isExpired;
+		});
 
 	// when the codeList changes, update local storage
 	$: {
@@ -196,7 +197,7 @@
 		const { codeId, used } = e.detail;
 
 		const userToCodeId = `${$user.uid}-${codeId}`;
-		
+
 		setDoc(doc(db, 'usersToCodes', userToCodeId), {
 			userId: $user.uid,
 			codeId,
